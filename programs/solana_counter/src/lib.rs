@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 
-declare_id!("8d69hCAymRKqXviPGLvTfesZnpJTpt1oLdiSwwV51c4U");
+declare_id!("4Acsi2H93uxQq6gEANgBMxiZu9MP2VSxZV6uBRAiTXSs");
 
 #[program]
 pub mod solana_counter {

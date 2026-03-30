@@ -5,6 +5,7 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { getProgram, getBuildingProjectPda, PROJECT_ID } from "@/utils/anchor";
 import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import ClientWalletButton from "@/components/ClientWalletButton";
 
 // Адрес застройщика, который мы записывали при 
 // initialize в тестах. Здесь мы его хардкодим для хакатона, 
@@ -74,8 +75,9 @@ export default function AdminPanel() {
           AUTH OK: {wallet.publicKey?.toBase58()}
         </div>
       ) : (
-        <div style={{ color: "red", marginBottom: "2rem" }}>
-          НЕ АВТОРИЗОВАН (Требуется Web3 Auth)
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: "red", marginBottom: "2rem" }}>
+          <div>НЕ АВТОРИЗОВАН (Требуется Web3 Auth)</div>
+          <ClientWalletButton />
         </div>
       )}
 

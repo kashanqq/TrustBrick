@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import ClientWalletButton from "@/components/ClientWalletButton";
 import { getProgram, getBuildingProjectPda, PROJECT_ID } from "@/utils/anchor";
 import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -116,7 +116,7 @@ export default function Home() {
     <main>
       <header className="header">
         <div className="logo">TRUSTBRICK</div>
-        <WalletMultiButton />
+        <ClientWalletButton />
       </header>
 
       <div style={{ marginTop: "4rem" }} className="card">
