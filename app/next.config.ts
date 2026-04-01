@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   turbopack: {},
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
   transpilePackages: [
     "@solana/wallet-adapter-react",
     "@solana/wallet-adapter-react-ui",

@@ -1,32 +1,101 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Footer from "@/components/Footer";
+import { useLanguage } from "@/components/LanguageContext";
+
+const ASSETS = [
+    {
+        id: "hackathon",
+        name: "Hackathon Tower",
+        series: "Series A",
+        phase: "Phase 3: Structural Core Completion",
+        price: 142.85,
+        change: "+4.2%",
+        image: "/stage-1.png",
+        volume: "1,248.5",
+        status: "Verified Audit"
+    },
+    {
+        id: "dubai",
+        name: "Dubai Marina Loft",
+        series: "Exclusive Phase",
+        phase: "Phase 1: Foundation",
+        price: 245.00,
+        change: "+12.1%",
+        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8-Ow4CT9O_b08CJzLH74d60idNlxIoBH7UzkjQS-vx7xqBbcH45NyTKJTKCpJpHIZes0MLfvZFr9Zd4IXP7OHljfP7mh511HMDph6zc4CbnD_Z3VhDc6SmGMyMVlOwGpoK4s42k6a4eEfi9HA3xeQIJEL5QUH7AI38EhLBNqwp-h8Kmp2-h-Vgn0YGz7D5Z3t6QI3qppS98eKFbvkV00_IIdJf_jsUGlWcjXofSU8wP18zEaHBdACT3UHNPaj_01ZGBVWLRfsXuI",
+        volume: "4,102.1",
+        status: "Verified Audit"
+    },
+    {
+        id: "london",
+        name: "London Fin-Center",
+        series: "Commercial",
+        phase: "Phase 5: Interior Fit-out",
+        price: 412.80,
+        change: "+9.8%",
+        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDu5WjZc2WvbANMGyfH2zyZszN6UzoArtH9m9sZgPqH0nrvyFTkRUeGZWeMvD9FuAWQFjuFyUtInMKmtK6dWDifTmgkde0HQWVJMO-nw3G-pqJH-wekySt4EiiVEHcaZIaYnrx-XBoe5IVzgmYmLJNsKmaqgan1gm5qjy8YXSOte2ovQsXpA1MGpe3YZdOpRFFRCqSKgjgQg0dU8z6ejNqd_225nUxGiPsS83toSJyBLb2o44DO1vmoMhjdd5hUvUlvNqftDvFgIQA",
+        volume: "8,920.4",
+        status: "Verified Audit"
+    }
+];
 
 export default function Exchange() {
+  const { t } = useLanguage();
+  const [activeId, setActiveId] = useState("hackathon");
+
+  const activeAsset = ASSETS.find(a => a.id === activeId) || ASSETS[0];
+
   return (
     <>
       <main className="pt-24 pb-12 px-6 max-w-screen-2xl mx-auto grid grid-cols-12 gap-6 min-h-[calc(100vh-80px)]">
-        <div className="col-span-12 lg:col-span-8 flex flex-col gap-6 relative z-10">
-            <div className="bg-surface-container-low rounded-xl overflow-hidden flex flex-col h-[500px]">
+        
+        {/* Market Selector Sidebar */}
+        <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
+            <h2 className="font-headline text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Available Markets</h2>
+            {ASSETS.map(asset => (
+                <div 
+                    key={asset.id} 
+                    onClick={() => setActiveId(asset.id)}
+                    className={`p-4 rounded-xl cursor-pointer transition-all border ${activeId === asset.id ? 'bg-surface-container border-primary shadow-[0_0_15px_rgba(255,181,157,0.1)]' : 'bg-surface-container-low border-outline-variant/10 hover:bg-surface-container'}`}
+                >
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="font-headline font-bold text-sm text-slate-100">{asset.name}</div>
+                        <span className="text-tertiary-fixed-dim text-[10px] font-bold">{asset.change}</span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                        <span className="text-[10px] uppercase text-slate-500">{asset.series}</span>
+                        <span className="tabular-nums font-bold text-sm">{asset.price} SOL</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        <div className="col-span-12 lg:col-span-6 flex flex-col gap-6 relative z-10">
+            <div className="bg-surface-container-low rounded-xl overflow-hidden flex flex-col h-[400px]">
                 <div className="px-6 py-4 flex justify-between items-center bg-surface-container/40">
                     <div className="flex items-center gap-4">
                         <div className="bg-surface-container-high p-2 rounded">
                             <span className="material-symbols-outlined text-primary">apartment</span>
                         </div>
                         <div>
-                            <h1 className="font-headline text-lg font-bold uppercase tracking-tight">Hackathon Tower · Series A</h1>
-                            <p className="text-xs text-secondary italic">Phase 3: Structural Core Completion</p>
+                            <h1 className="font-headline text-lg font-bold uppercase tracking-tight">{activeAsset.name} · {activeAsset.series}</h1>
+                            <p className="text-xs text-secondary italic">{activeAsset.phase}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-6 tabular-nums">
                         <div className="text-right">
                             <span className="block text-[10px] uppercase text-slate-500">Last Price</span>
-                            <span className="text-primary font-bold">142.85 SOL</span>
+                            <span className="text-primary font-bold">{activeAsset.price} SOL</span>
                         </div>
                         <div className="text-right">
                             <span className="block text-[10px] uppercase text-slate-500">24h Progress</span>
-                            <span className="text-tertiary-fixed-dim">+4.2%</span>
+                            <span className="text-tertiary-fixed-dim">{activeAsset.change}</span>
+                        </div>
+                        <div className="text-right hidden md:block">
+                            <span className="block text-[10px] uppercase text-slate-500">24h Vol</span>
+                            <span className="text-slate-100">{activeAsset.volume} SOL</span>
                         </div>
                     </div>
                 </div>
@@ -57,11 +126,10 @@ export default function Exchange() {
                         </div>
                     </div>
                     <div className="absolute left-8 top-8 bottom-12 flex flex-col justify-between text-[10px] text-slate-600 tabular-nums">
-                        <span>200.0</span>
-                        <span>150.0</span>
-                        <span>100.0</span>
-                        <span>50.0</span>
-                        <span>0.0</span>
+                        <span>{(activeAsset.price * 1.5).toFixed(1)}</span>
+                        <span>{(activeAsset.price * 1.25).toFixed(1)}</span>
+                        <span>{activeAsset.price.toFixed(1)}</span>
+                        <span>{(activeAsset.price * 0.75).toFixed(1)}</span>
                     </div>
                 </div>
             </div>
@@ -90,14 +158,14 @@ export default function Exchange() {
                             </div>
                             <div>
                                 <label className="block text-[10px] uppercase tracking-widest text-secondary mb-2">Estimated Price</label>
-                                <div className="py-3 text-on-surface font-headline font-bold tabular-nums">142.85 SOL</div>
+                                <div className="py-3 text-on-surface font-headline font-bold tabular-nums">{activeAsset.price} SOL</div>
                             </div>
                         </div>
                     </div>
                     <div className="mt-auto border-t border-outline-variant/10 pt-6">
                         <div className="flex justify-between text-xs mb-4">
                             <span className="text-slate-500">Transactional Fee (0.2%)</span>
-                            <span className="text-on-surface tabular-nums">0.285 SOL</span>
+                            <span className="text-on-surface tabular-nums">{(activeAsset.price * 0.002).toFixed(3)} SOL</span>
                         </div>
                         <button className="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-headline font-extrabold uppercase tracking-widest rounded-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all">
                             Place Buy Order
@@ -113,23 +181,23 @@ export default function Exchange() {
                     <div className="space-y-6">
                         <div className="flex gap-4">
                             <div className="w-16 h-16 rounded bg-surface-container-high flex-shrink-0 relative overflow-hidden">
-                                <Image alt="Building core" fill className="w-full h-full object-cover" src="/stage-1.png" />
+                                <Image alt="Building Preview" fill className="w-full h-full object-cover" src={activeAsset.image} />
                             </div>
                             <div>
-                                <span className="text-[10px] text-tertiary-fixed-dim bg-on-tertiary-fixed-variant/20 px-2 py-0.5 rounded">Verified Audit</span>
-                                <p className="text-sm mt-1 text-on-surface-variant leading-relaxed">Structural integrity certificate issued by BrickGuard Labs. Current load capacity: 110% of planned.</p>
+                                <span className="text-[10px] text-tertiary-fixed-dim bg-on-tertiary-fixed-variant/20 px-2 py-0.5 rounded">{activeAsset.status}</span>
+                                <p className="text-xs mt-2 text-on-surface-variant leading-relaxed">Structural integrity certificate issued. High institutional demand observed in recent epochs.</p>
                             </div>
                         </div>
                         <div className="bg-surface-container p-4 rounded-sm border-l-2 border-secondary">
                             <span className="text-[9px] uppercase tracking-widest text-secondary">Phase Reward Milestone</span>
-                            <p className="text-xs mt-1">Investors holding &gt;10 Bricks qualify for 'Golden Key' priority on Series B penthouse listings.</p>
+                            <p className="text-xs mt-1">Investors holding &gt;10 Bricks qualify for 'Golden Key' priority on {activeAsset.series} listings.</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 bg-surface-container-low rounded-xl flex flex-col overflow-hidden relative z-10">
+        <div className="col-span-12 lg:col-span-3 bg-surface-container-low rounded-xl flex flex-col overflow-hidden relative z-10">
             <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
                 <h2 className="font-headline text-xs font-bold uppercase tracking-widest">Public Ledger</h2>
                 <div className="flex gap-4">
@@ -143,28 +211,28 @@ export default function Exchange() {
                     <div className="flex justify-between text-[9px] uppercase tracking-widest text-slate-600 mb-2 font-bold">
                         <span>Price (SOL)</span>
                         <span>Quantity</span>
-                        <span>Total</span>
+                    </div>
+                    {/* Generative asks based on active price */}
+                    <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group">
+                        <span className="font-bold">{(activeAsset.price + 0.30).toFixed(2)}</span><span className="text-slate-400">12.4</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">143.15</span><span className="text-slate-400">12.4</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">1,775</span>
+                        <span className="font-bold">{(activeAsset.price + 0.23).toFixed(2)}</span><span className="text-slate-400">0.5</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">143.08</span><span className="text-slate-400">0.5</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">71</span>
-                    </div>
-                    <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">142.99</span><span className="text-slate-400">45.0</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">6,434</span>
+                        <span className="font-bold">{(activeAsset.price + 0.14).toFixed(2)}</span><span className="text-slate-400">45.0</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group opacity-80">
-                        <span className="font-bold">142.92</span><span className="text-slate-400">8.2</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">1,171</span>
+                        <span className="font-bold">{(activeAsset.price + 0.07).toFixed(2)}</span><span className="text-slate-400">8.2</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-on-error py-1 hover:bg-white/5 transition-colors group opacity-60">
-                        <span className="font-bold">142.88</span><span className="text-slate-400">2.1</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">300</span>
+                        <span className="font-bold">{(activeAsset.price + 0.03).toFixed(2)}</span><span className="text-slate-400">2.1</span>
                     </div>
                 </div>
 
                 <div className="py-4 px-6 bg-surface-container-high/40 flex items-center justify-center border-y border-outline-variant/10">
                     <div className="flex items-center gap-3">
-                        <span className="text-xl font-headline font-extrabold text-on-surface tabular-nums">142.85</span>
+                        <span className="text-xl font-headline font-extrabold text-on-surface tabular-nums">{activeAsset.price}</span>
                         <span className="material-symbols-outlined text-primary text-sm">trending_up</span>
                         <span className="text-[10px] uppercase font-bold text-slate-500">Market Price</span>
                     </div>
@@ -172,19 +240,19 @@ export default function Exchange() {
 
                 <div className="bg-green-500/5 px-6 py-4 flex flex-col gap-1 overflow-y-auto h-1/2 scrollbar-hide">
                     <div className="flex justify-between text-xs tabular-nums text-tertiary-fixed-dim py-1 hover:bg-white/5 transition-colors group opacity-60">
-                        <span className="font-bold">142.82</span><span className="text-slate-400">1.8</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">257</span>
+                        <span className="font-bold">{(activeAsset.price - 0.03).toFixed(2)}</span><span className="text-slate-400">1.8</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-tertiary-fixed-dim py-1 hover:bg-white/5 transition-colors group opacity-80">
-                        <span className="font-bold">142.75</span><span className="text-slate-400">15.0</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">2,141</span>
+                        <span className="font-bold">{(activeAsset.price - 0.10).toFixed(2)}</span><span className="text-slate-400">15.0</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-tertiary-fixed-dim py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">142.70</span><span className="text-slate-400">102.5</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">14,626</span>
+                        <span className="font-bold">{(activeAsset.price - 0.15).toFixed(2)}</span><span className="text-slate-400">102.5</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-tertiary-fixed-dim py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">142.66</span><span className="text-slate-400">4.4</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">627</span>
+                        <span className="font-bold">{(activeAsset.price - 0.19).toFixed(2)}</span><span className="text-slate-400">4.4</span>
                     </div>
                     <div className="flex justify-between text-xs tabular-nums text-tertiary-fixed-dim py-1 hover:bg-white/5 transition-colors group">
-                        <span className="font-bold">142.50</span><span className="text-slate-400">22.9</span><span className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">3,263</span>
+                        <span className="font-bold">{(activeAsset.price - 0.35).toFixed(2)}</span><span className="text-slate-400">22.9</span>
                     </div>
                 </div>
             </div>
@@ -200,7 +268,7 @@ export default function Exchange() {
                         <span className="text-slate-600 font-label">2s ago</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
-                        <span className="text-on-surface">New Ask: 144.10 SOL</span>
+                        <span className="text-on-surface">New Ask: {(activeAsset.price + 1.25).toFixed(2)} SOL</span>
                         <span className="text-slate-600 font-label">5s ago</span>
                     </div>
                 </div>
