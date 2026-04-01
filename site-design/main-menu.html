@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=Space+Grotesk:wght@300..700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-background": "#dae2fd",
+                        "on-primary-fixed-variant": "#832600",
+                        "secondary-fixed-dim": "#dfc29c",
+                        "surface": "#0b1326",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed": "#390c00",
+                        "surface-container-lowest": "#060e20",
+                        "on-primary": "#5d1800",
+                        "secondary-container": "#5a4628",
+                        "surface-container-low": "#131b2e",
+                        "surface-container-high": "#222a3d",
+                        "on-secondary-fixed": "#281902",
+                        "tertiary-fixed": "#dce2f3",
+                        "on-secondary-fixed-variant": "#574326",
+                        "on-error": "#690005",
+                        "inverse-surface": "#dae2fd",
+                        "on-secondary-container": "#d0b48f",
+                        "primary-fixed": "#ffdbd0",
+                        "error-container": "#93000a",
+                        "surface-bright": "#31394d",
+                        "secondary-fixed": "#fddeb6",
+                        "primary": "#ffb59d",
+                        "surface-tint": "#ffb59d",
+                        "on-secondary": "#3f2d12",
+                        "inverse-primary": "#ac3400",
+                        "on-surface": "#dae2fd",
+                        "secondary": "#dfc29c",
+                        "inverse-on-surface": "#283044",
+                        "surface-container-highest": "#2d3449",
+                        "surface-container": "#171f33",
+                        "tertiary-container": "#666d7b",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#151c27",
+                        "surface-dim": "#0b1326",
+                        "on-tertiary": "#2a313d",
+                        "on-tertiary-container": "#eaf0ff",
+                        "surface-variant": "#2d3449",
+                        "tertiary": "#c0c7d6",
+                        "primary-fixed-dim": "#ffb59d",
+                        "on-tertiary-fixed-variant": "#404754",
+                        "primary-container": "#c2410c",
+                        "outline-variant": "#59413a",
+                        "on-primary-container": "#ffece7",
+                        "tertiary-fixed-dim": "#c0c7d6",
+                        "on-surface-variant": "#e1bfb5",
+                        "background": "#0b1326",
+                        "outline": "#a88a81"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(45, 52, 73, 0.6);
+            backdrop-filter: blur(12px);
+        }
+
+        .hero-gradient {
+            background: radial-gradient(circle at 50% 50%, rgba(194, 65, 12, 0.15) 0%, rgba(11, 19, 38, 0) 70%);
+        }
+
+        .text-tabular {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .ghost-border {
+            outline: 1px solid rgba(89, 65, 58, 0.15);
+        }
+    </style>
+</head>
+
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+    <!-- TopNavBar -->
+    <nav
+        class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl shadow-[0_32px_64px_-15px_rgba(218,226,253,0.06)]">
+        <div
+            class="flex justify-between items-center px-8 h-20 w-full max-w-screen-2xl mx-auto font-['Space_Grotesk'] tracking-tight">
+            <div class="flex items-center gap-12">
+                <span class="text-2xl font-bold tracking-tighter text-slate-50 uppercase">TrustBrick</span>
+                <div class="hidden md:flex gap-8 items-center h-full">
+                    <a class="text-orange-500 border-b-2 border-orange-600 pb-1 h-full flex items-center"
+                        href="#">Marketplace</a>
+                    <a class="text-slate-400 hover:text-slate-100 transition-colors h-full flex items-center"
+                        href="#">Portfolio</a>
+                    <a class="text-slate-400 hover:text-slate-100 transition-colors h-full flex items-center"
+                        href="#">Exchange</a>
+                    <a class="text-slate-400 hover:text-slate-100 transition-colors h-full flex items-center"
+                        href="#">Admin</a>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="hidden lg:flex items-center gap-4 px-4 py-2 bg-slate-900/50 rounded-lg">
+                    <span class="material-symbols-outlined text-orange-600 text-sm">account_balance_wallet</span>
+                    <span class="text-tabular font-bold text-slate-100">24.5 SOL</span>
+                </div>
+                <button
+                    class="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-md font-bold hover:scale-95 active:scale-90 transition-transform">
+                    Connect Wallet
+                </button>
+                <div class="flex gap-2">
+                    <button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all rounded-full">
+                        <span class="material-symbols-outlined">notifications</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="relative pt-20 overflow-hidden">
+        <!-- Hero Background Decor -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[800px] hero-gradient pointer-events-none"></div>
+        <!-- Investment Ticker -->
+        <div
+            class="w-full bg-surface-container-lowest py-3 overflow-hidden whitespace-nowrap border-y border-outline-variant/10">
+            <div class="inline-flex gap-12 items-center animate-marquee">
+                <div class="flex items-center gap-3">
+                    <span class="text-secondary font-headline text-xs uppercase tracking-widest">ALMATY RESIDENCE</span>
+                    <span class="text-tertiary text-tabular font-bold">+12.4% APY</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-secondary font-headline text-xs uppercase tracking-widest">ASTANA LOGISTICS
+                        HUB</span>
+                    <span class="text-tertiary text-tabular font-bold">+18.2% APY</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-secondary font-headline text-xs uppercase tracking-widest">DUBAI MARINA
+                        LOFT</span>
+                    <span class="text-tertiary text-tabular font-bold">+9.8% APY</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-secondary font-headline text-xs uppercase tracking-widest">LONDON
+                        FIN-CENTER</span>
+                    <span class="text-tertiary text-tabular font-bold">+11.5% APY</span>
+                </div>
+            </div>
+        </div>
+        <!-- Hero Section -->
+        <section class="max-w-7xl mx-auto px-8 pt-24 pb-12">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+                <div class="lg:col-span-5 space-y-8">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-high rounded-sm">
+                        <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                        <span class="text-[10px] uppercase tracking-[0.2em] text-primary">Live Marketplace</span>
+                    </div>
+                    <h1
+                        class="font-headline text-6xl lg:text-7xl font-bold tracking-tighter leading-[0.9] text-on-background">
+                        Сделай бетон <span class="text-primary italic">ликвидным.</span>
+                    </h1>
+                    <p class="text-xl text-slate-400 max-w-md leading-relaxed font-light">
+                        Инвестируй в элитную коммерческую недвижимость от <span
+                            class="text-slate-100 font-bold">$100</span> через прозрачные смарт-контракты Solana.
+                    </p>
+                    <div class="flex items-center gap-6 pt-4">
+                        <button
+                            class="bg-gradient-to-br from-primary to-primary-container text-on-primary-fixed px-8 py-4 rounded-md font-bold text-lg hover:shadow-[0_0_30px_rgba(194,65,12,0.3)] transition-all">
+                            Начать инвестировать
+                        </button>
+                        <button
+                            class="text-secondary font-headline uppercase tracking-widest text-sm font-bold flex items-center gap-2 hover:translate-x-2 transition-transform">
+                            Whitepaper <span class="material-symbols-outlined text-sm">north_east</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Featured Property Card (Almaty Tech Hub) -->
+                <div class="lg:col-span-7 relative group">
+                    <div
+                        class="absolute -inset-4 bg-primary/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <div class="relative glass-panel rounded-xl overflow-hidden shadow-2xl border border-white/5">
+                        <div class="aspect-[16/10] relative">
+                            <img class="w-full h-full object-cover"
+                                data-alt="Modern geometric glass skyscraper with sharp angles reflecting a clear blue sky at dusk, architectural photography style, futuristic commercial building"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg7V6va-Qh6iyogQ7hWrlKhLupGBrqY5hlQVgRwSpJdkCRYtt6E7Z22rzLCbr4xs8b3iJYrSfo9Q4CJKaNN34_HuBfR-PEhnUdGNl_Npc_IXWI5L5k0f2-j3RLFxm-HUb5-r1nSWaPIBo9i6vLeU3wtpDpS3d9dtM9r4yk6_SD2sLEO-TGUCNIpseApj_RvMZHfArwHT_UhYWJZhEzUEdPBUh6VAzYPazlVZcvtK4GaTYLNCOGiAjl9ldl1czRcfFVtrsBeq2edNM" />
+                            <div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent">
+                            </div>
+                            <div class="absolute top-6 left-6 flex gap-2">
+                                <span
+                                    class="px-3 py-1 bg-surface-container-lowest/80 backdrop-blur-md rounded-sm text-[10px] font-bold uppercase tracking-widest text-primary">Class
+                                    A+ Office</span>
+                                <span
+                                    class="px-3 py-1 bg-surface-container-lowest/80 backdrop-blur-md rounded-sm text-[10px] font-bold uppercase tracking-widest text-secondary">Verified</span>
+                            </div>
+                            <div class="absolute bottom-6 left-8 right-8">
+                                <h3 class="font-headline text-4xl font-bold tracking-tighter text-slate-50 mb-1">Almaty
+                                    Tech Hub</h3>
+                                <p class="text-slate-300 font-light text-sm flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">location_on</span>
+                                    Al-Farabi Ave, Financial District
+                                </p>
+                            </div>
+                        </div>
+                        <div class="p-8 space-y-8 bg-surface-container-low/40">
+                            <div class="grid grid-cols-3 gap-8">
+                                <div class="space-y-1">
+                                    <span class="text-[10px] uppercase tracking-widest text-slate-500">Target APY</span>
+                                    <div class="text-2xl font-headline font-bold text-primary tracking-tight">16.4%
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <span class="text-[10px] uppercase tracking-widest text-slate-500">Price /
+                                        Share</span>
+                                    <div
+                                        class="text-2xl font-headline font-bold text-slate-100 tracking-tight text-tabular">
+                                        $100</div>
+                                </div>
+                                <div class="space-y-1">
+                                    <span class="text-[10px] uppercase tracking-widest text-slate-500">Status</span>
+                                    <div class="text-2xl font-headline font-bold text-secondary tracking-tight">MINTING
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-slate-400">Собрано <span
+                                            class="text-slate-100 font-bold">$450,000</span></span>
+                                    <span class="text-slate-400">Цель <span
+                                            class="text-slate-100 font-bold">$1,000,000</span></span>
+                                </div>
+                                <div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                                    <div
+                                        class="h-full w-[45%] bg-gradient-to-r from-primary to-primary-container rounded-full shadow-[0_0_15px_rgba(194,65,12,0.4)]">
+                                    </div>
+                                </div>
+                                <div
+                                    class="flex justify-between text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                                    <span>45% Funding reached</span>
+                                    <span>22 days left</span>
+                                </div>
+                            </div>
+                            <div class="pt-4 flex gap-4">
+                                <button
+                                    class="flex-1 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed py-4 rounded-md font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all">
+                                    Купить долю (Mint)
+                                </button>
+                                <button
+                                    class="aspect-square bg-surface-container-high flex items-center justify-center rounded-md hover:bg-surface-container-highest transition-colors">
+                                    <span class="material-symbols-outlined text-on-surface">favorite</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Secondary Features Grid -->
+        <section class="max-w-7xl mx-auto px-8 py-24 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div
+                class="p-8 bg-surface-container-low/30 rounded-xl space-y-4 ghost-border hover:bg-surface-container-low/50 transition-colors">
+                <span class="material-symbols-outlined text-primary text-4xl">account_balance</span>
+                <h4 class="font-headline text-xl font-bold uppercase tracking-tight text-slate-100">Institutional Access
+                </h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Early-stage commercial opportunities previously
+                    reserved for family offices and institutional funds.</p>
+            </div>
+            <div
+                class="p-8 bg-surface-container-low/30 rounded-xl space-y-4 ghost-border hover:bg-surface-container-low/50 transition-colors">
+                <span class="material-symbols-outlined text-primary text-4xl">security</span>
+                <h4 class="font-headline text-xl font-bold uppercase tracking-tight text-slate-100">Fractional Ledger
+                </h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Ownership is recorded on-chain, providing instant
+                    settlement and immutable proof of equity shares.</p>
+            </div>
+            <div
+                class="p-8 bg-surface-container-low/30 rounded-xl space-y-4 ghost-border hover:bg-surface-container-low/50 transition-colors">
+                <span class="material-symbols-outlined text-primary text-4xl">monitoring</span>
+                <h4 class="font-headline text-xl font-bold uppercase tracking-tight text-slate-100">Secondary Market
+                </h4>
+                <p class="text-slate-400 text-sm leading-relaxed">Exit your position anytime via our automated liquidity
+                    pool, turning rigid concrete into liquid capital.</p>
+            </div>
+        </section>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-slate-950 w-full py-12 px-8 border-t border-orange-900/10 mt-24">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-7xl mx-auto">
+            <div class="space-y-4">
+                <div class="text-slate-500 font-['Inter'] tabular-nums text-[10px] uppercase tracking-[0.1em]">
+                    © 2024 TRUSTBRICK ARCHITECTURAL LEDGER. SECURED BY SOLANA.
+                </div>
+                <div class="flex gap-6">
+                    <a class="text-slate-600 hover:text-orange-500 transition-colors text-[10px] uppercase tracking-[0.1em] font-['Inter'] font-bold"
+                        href="#">Terms of Issue</a>
+                    <a class="text-slate-600 hover:text-orange-500 transition-colors text-[10px] uppercase tracking-[0.1em] font-['Inter'] font-bold"
+                        href="#">Risk Disclosure</a>
+                    <a class="text-slate-600 hover:text-orange-500 transition-colors text-[10px] uppercase tracking-[0.1em] font-['Inter'] font-bold"
+                        href="#">Privacy</a>
+                    <a class="text-slate-600 hover:text-orange-500 transition-colors text-[10px] uppercase tracking-[0.1em] font-['Inter'] font-bold"
+                        href="#">Terminal Status</a>
+                </div>
+            </div>
+            <div class="flex md:justify-end items-center gap-12">
+                <div class="text-right">
+                    <div class="text-slate-500 text-[10px] uppercase tracking-[0.1em] mb-1">Network Capacity</div>
+                    <div class="text-orange-400 font-headline font-bold">65,000 TPS</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-slate-500 text-[10px] uppercase tracking-[0.1em] mb-1">Active Collateral</div>
+                    <div class="text-orange-400 font-headline font-bold">$1.2B USD</div>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-background": "#dae2fd",
+                        "on-primary-fixed-variant": "#832600",
+                        "secondary-fixed-dim": "#dfc29c",
+                        "surface": "#0b1326",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed": "#390c00",
+                        "surface-container-lowest": "#060e20",
+                        "on-primary": "#5d1800",
+                        "secondary-container": "#5a4628",
+                        "surface-container-low": "#131b2e",
+                        "surface-container-high": "#222a3d",
+                        "on-secondary-fixed": "#281902",
+                        "tertiary-fixed": "#dce2f3",
+                        "on-secondary-fixed-variant": "#574326",
+                        "on-error": "#690005",
+                        "inverse-surface": "#dae2fd",
+                        "on-secondary-container": "#d0b48f",
+                        "primary-fixed": "#ffdbd0",
+                        "error-container": "#93000a",
+                        "surface-bright": "#31394d",
+                        "secondary-fixed": "#fddeb6",
+                        "primary": "#ffb59d",
+                        "surface-tint": "#ffb59d",
+                        "on-secondary": "#3f2d12",
+                        "inverse-primary": "#ac3400",
+                        "on-surface": "#dae2fd",
+                        "secondary": "#dfc29c",
+                        "inverse-on-surface": "#283044",
+                        "surface-container-highest": "#2d3449",
+                        "surface-container": "#171f33",
+                        "tertiary-container": "#666d7b",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#151c27",
+                        "surface-dim": "#0b1326",
+                        "on-tertiary": "#2a313d",
+                        "on-tertiary-container": "#eaf0ff",
+                        "surface-variant": "#2d3449",
+                        "tertiary": "#c0c7d6",
+                        "primary-fixed-dim": "#ffb59d",
+                        "on-tertiary-fixed-variant": "#404754",
+                        "primary-container": "#c2410c",
+                        "outline-variant": "#59413a",
+                        "on-primary-container": "#ffece7",
+                        "tertiary-fixed-dim": "#c0c7d6",
+                        "on-surface-variant": "#e1bfb5",
+                        "background": "#0b1326",
+                        "outline": "#a88a81"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .control-panel-grid {
+            background-image: radial-gradient(circle, #59413a 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center;
+        }
+    </style>
+</head>
+
+<body class="bg-surface text-on-background font-body selection:bg-primary selection:text-on-primary">
+    <!-- TopNavBar Implementation -->
+    <nav
+        class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl shadow-[0_32px_64px_-15px_rgba(218,226,253,0.06)]">
+        <div
+            class="flex justify-between items-center px-8 h-20 w-full max-w-screen-2xl mx-auto font-['Space_Grotesk'] tracking-tight">
+            <div class="text-2xl font-bold tracking-tighter text-slate-50 uppercase">TrustBrick</div>
+            <div class="hidden md:flex items-center space-x-8">
+                <a class="text-slate-400 hover:text-slate-100 transition-colors" href="#">Marketplace</a>
+                <a class="text-slate-400 hover:text-slate-100 transition-colors" href="#">Portfolio</a>
+                <a class="text-slate-400 hover:text-slate-100 transition-colors" href="#">Exchange</a>
+                <a class="text-orange-500 border-b-2 border-orange-600 pb-1" href="#">Admin</a>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="hidden lg:flex flex-col items-end">
+                    <span class="text-[10px] uppercase tracking-widest text-secondary">Network Status</span>
+                    <span class="text-sm font-mono text-primary">24.5 SOL</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all duration-300 rounded">
+                        <span class="material-symbols-outlined"
+                            data-icon="account_balance_wallet">account_balance_wallet</span>
+                    </button>
+                    <button class="p-2 text-slate-400 hover:bg-slate-800/40 transition-all duration-300 rounded">
+                        <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+                    </button>
+                    <button
+                        class="bg-primary-container text-on-primary-container px-6 py-2 rounded-lg font-bold hover:scale-95 active:scale-90 transition-transform">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- SideNavBar Implementation -->
+    <aside
+        class="h-full w-64 fixed left-0 border-r border-orange-900/10 bg-slate-950 hidden md:flex flex-col h-screen p-6 z-40 pt-28">
+        <div class="mb-10">
+            <h2 class="text-orange-500 font-bold font-headline uppercase tracking-widest text-xs">The Ledger</h2>
+            <p class="text-slate-500 text-[10px] uppercase">Institutional Grade</p>
+        </div>
+        <nav class="space-y-2 flex-1">
+            <a class="flex items-center space-x-3 p-3 text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition-colors font-['Space_Grotesk'] text-sm uppercase tracking-widest"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+                <span>Marketplace</span>
+            </a>
+            <a class="flex items-center space-x-3 p-3 text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition-colors font-['Space_Grotesk'] text-sm uppercase tracking-widest"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="pie_chart">pie_chart</span>
+                <span>Portfolio</span>
+            </a>
+            <a class="flex items-center space-x-3 p-3 text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition-colors font-['Space_Grotesk'] text-sm uppercase tracking-widest"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="currency_exchange">currency_exchange</span>
+                <span>Exchange</span>
+            </a>
+            <a class="flex items-center space-x-3 p-3 text-orange-500 bg-orange-950/20 font-bold font-['Space_Grotesk'] text-sm uppercase tracking-widest"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+                <span>Admin</span>
+            </a>
+        </nav>
+        <button
+            class="mt-auto bg-slate-900 text-secondary border border-outline-variant/30 py-4 font-headline text-xs tracking-[0.2em] uppercase hover:bg-secondary hover:text-on-secondary transition-all">
+            New Investment
+        </button>
+    </aside>
+    <!-- Main Content: The Oracle Control Room -->
+    <main class="md:ml-64 pt-20 min-h-screen bg-surface control-panel-grid">
+        <div class="max-w-screen-2xl mx-auto p-8 lg:p-12">
+            <!-- Header Section -->
+            <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 border-l-4 border-primary pl-6">
+                <div>
+                    <div class="flex items-center space-x-3 mb-2">
+                        <span class="w-3 h-3 bg-primary animate-pulse rounded-full"></span>
+                        <span class="font-headline text-xs tracking-widest uppercase text-secondary">Live Telemetry:
+                            Node 0x7A...F2</span>
+                    </div>
+                    <h1 class="font-headline text-5xl font-extrabold tracking-tighter uppercase">Oracle Admin</h1>
+                    <p class="text-slate-500 font-mono mt-2 uppercase text-xs">The Architectural Ledger // Verification
+                        Terminal</p>
+                </div>
+                <div class="flex space-x-4">
+                    <div class="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Current Block Height</p>
+                        <p class="font-headline text-xl font-bold tabular-nums">28,491,003</p>
+                    </div>
+                    <div class="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Oracle Latency</p>
+                        <p class="font-headline text-xl font-bold tabular-nums">14ms</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Bento Control Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Drone / 3D Feed (Visual Core) -->
+                <div class="lg:col-span-8 bg-surface-container-low overflow-hidden relative group">
+                    <div
+                        class="absolute top-4 left-4 z-10 bg-slate-950/80 backdrop-blur px-3 py-1 flex items-center space-x-2 border border-outline-variant/20">
+                        <span class="material-symbols-outlined text-xs text-primary"
+                            data-icon="videocam">videocam</span>
+                        <span class="text-[10px] font-mono uppercase tracking-widest">Feed: Site_A_Drone_04</span>
+                    </div>
+                    <div
+                        class="absolute bottom-4 right-4 z-10 bg-slate-950/80 backdrop-blur p-4 space-y-2 border border-outline-variant/20">
+                        <div class="flex justify-between items-center space-x-8">
+                            <span class="text-[10px] text-slate-500">ALTITUDE</span>
+                            <span class="text-xs font-mono">142.5M</span>
+                        </div>
+                        <div class="flex justify-between items-center space-x-8">
+                            <span class="text-[10px] text-slate-500">PRECISION</span>
+                            <span class="text-xs font-mono">99.8%</span>
+                        </div>
+                    </div>
+                    <img class="w-full aspect-video object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
+                        data-alt="Cinematic wide shot of a high-rise construction site at dusk with glowing orange lights, crane silhouettes against a deep blue architectural sky"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXLGP6KPWMEnIlhQrHnNi-MQY0Jggggip8v-3nC0bQ3FT-fdjQ5YBOduOgzMkAs-I8h5-tr3lkD4xLAuvwGz7iPeuczZrUnRywHZvrN0QGX-UuweawNEwp4pheCRKhNxbm8i_W9u-GTDeuwHHzFxVOpCpy6LIRFg1ylTE8HqcYWsTYLTMnYly9KOvEIUShYVp16G90FqzJuiWnY7qBJ9hSwyn_yo2Ml9q2EGNNqQ0Srfr2bm2jQpaH8mGrQWn5N7pK79ioU5Nc7NQ" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+                    <!-- SVG Overlay (Brutalist UI pattern) -->
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-30"
+                        preserveaspectratio="none" viewbox="0 0 100 100">
+                        <path class="text-primary" d="M 0 10 L 100 10 M 0 90 L 100 90 M 10 0 L 10 100 M 90 0 L 90 100"
+                            stroke="currentColor" stroke-width="0.1"></path>
+                        <circle class="text-primary" cx="50" cy="50" fill="currentColor" r="2"></circle>
+                    </svg>
+                </div>
+                <!-- Verification Panel -->
+                <div class="lg:col-span-4 flex flex-col gap-6">
+                    <div class="bg-surface-container-high p-8 flex-1 border-t-4 border-secondary">
+                        <h3 class="font-headline text-lg font-bold mb-6 flex items-center">
+                            <span class="material-symbols-outlined mr-2 text-secondary"
+                                data-icon="verified_user">verified_user</span>
+                            VERIFICATION PROTOCOL
+                        </h3>
+                        <div class="space-y-6">
+                            <div class="bg-surface-container p-4">
+                                <span
+                                    class="text-[10px] text-secondary uppercase font-bold tracking-widest block mb-2">Phase
+                                    Identifier</span>
+                                <p class="font-headline text-2xl font-bold tracking-tight">ЭТАП 2: ФУНДАМЕНТ</p>
+                            </div>
+                            <div class="space-y-4 pt-4">
+                                <label class="flex items-start group cursor-pointer">
+                                    <div class="relative flex items-center">
+                                        <input
+                                            class="peer h-6 w-6 border-2 border-outline bg-transparent text-primary focus:ring-0 rounded-none appearance-none checked:bg-primary"
+                                            type="checkbox" />
+                                        <span
+                                            class="material-symbols-outlined absolute opacity-0 peer-checked:opacity-100 text-on-primary-fixed pointer-events-none text-xl"
+                                            data-icon="check">check</span>
+                                    </div>
+                                    <span
+                                        class="ml-4 text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Подтверждаю
+                                        качество ГОСТ</span>
+                                </label>
+                                <label class="flex items-start group cursor-pointer">
+                                    <div class="relative flex items-center">
+                                        <input
+                                            class="peer h-6 w-6 border-2 border-outline bg-transparent text-primary focus:ring-0 rounded-none appearance-none checked:bg-primary"
+                                            type="checkbox" />
+                                        <span
+                                            class="material-symbols-outlined absolute opacity-0 peer-checked:opacity-100 text-on-primary-fixed pointer-events-none text-xl"
+                                            data-icon="check">check</span>
+                                    </div>
+                                    <span
+                                        class="ml-4 text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Check
+                                        geometric alignment (LIDAR)</span>
+                                </label>
+                                <label class="flex items-start group cursor-pointer">
+                                    <div class="relative flex items-center">
+                                        <input
+                                            class="peer h-6 w-6 border-2 border-outline bg-transparent text-primary focus:ring-0 rounded-none appearance-none checked:bg-primary"
+                                            type="checkbox" />
+                                        <span
+                                            class="material-symbols-outlined absolute opacity-0 peer-checked:opacity-100 text-on-primary-fixed pointer-events-none text-xl"
+                                            data-icon="check">check</span>
+                                    </div>
+                                    <span
+                                        class="ml-4 text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Review
+                                        material ledger certificates</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mt-12 space-y-4">
+                            <button
+                                class="w-full bg-primary-container text-on-primary-container py-6 px-4 font-headline font-black text-lg tracking-tighter uppercase hover:bg-primary transition-all shadow-[0_10px_30px_-10px_rgba(194,65,12,0.5)] flex items-center justify-center">
+                                <span class="material-symbols-outlined mr-3" data-icon="lock_open">lock_open</span>
+                                АВТОРИЗОВАТЬ ТРАНШ: ЭТАП 2
+                            </button>
+                            <p
+                                class="text-center text-[10px] text-error uppercase font-mono tracking-widest opacity-70">
+                                Requires dual-sig hardware confirmation</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Live Data Ledger -->
+                <div class="lg:col-span-12 bg-surface-container p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="font-headline text-sm font-bold tracking-widest uppercase">Structural Integrity
+                            Stream</h4>
+                        <div class="flex space-x-2">
+                            <span
+                                class="bg-tertiary-container text-on-tertiary-container px-2 py-0.5 text-[10px] font-bold">RAW_JSON</span>
+                            <span
+                                class="bg-surface-container-highest px-2 py-0.5 text-[10px] font-bold">SQL_READY</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-1">
+                        <div class="bg-surface-container-low p-4 border-l border-primary">
+                            <p class="text-[10px] text-slate-500 uppercase">Load Bearing</p>
+                            <p class="font-mono text-lg tabular-nums">450.2 kN/m²</p>
+                        </div>
+                        <div class="bg-surface-container-low p-4 border-l border-primary">
+                            <p class="text-[10px] text-slate-500 uppercase">Thermal Expansion</p>
+                            <p class="font-mono text-lg tabular-nums">+0.024mm</p>
+                        </div>
+                        <div class="bg-surface-container-low p-4 border-l border-primary">
+                            <p class="text-[10px] text-slate-500 uppercase">Concrete Cure</p>
+                            <p class="font-mono text-lg tabular-nums text-primary">82% NOMINAL</p>
+                        </div>
+                        <div class="bg-surface-container-low p-4 border-l border-primary">
+                            <p class="text-[10px] text-slate-500 uppercase">Settlement Rate</p>
+                            <p class="font-mono text-lg tabular-nums">OPTIMAL</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Events Log (Asymmetric Side) -->
+                <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-surface-container-low p-8 border border-outline-variant/10">
+                        <h4 class="font-headline text-xs font-bold uppercase tracking-[0.3em] mb-6 text-secondary">
+                            Oracle Smart Event Log</h4>
+                        <div class="space-y-4 font-mono text-[11px] uppercase">
+                            <div class="flex justify-between border-b border-outline-variant/10 pb-2">
+                                <span class="text-slate-500">[14:02:11]</span>
+                                <span class="text-slate-200">Lidar mapping sync complete</span>
+                                <span class="text-primary">OK</span>
+                            </div>
+                            <div class="flex justify-between border-b border-outline-variant/10 pb-2">
+                                <span class="text-slate-500">[13:45:02]</span>
+                                <span class="text-slate-200">IoT sensor mesh handshake</span>
+                                <span class="text-primary">OK</span>
+                            </div>
+                            <div class="flex justify-between border-b border-outline-variant/10 pb-2">
+                                <span class="text-slate-500">[12:30:58]</span>
+                                <span class="text-slate-200">Physical-to-digital hash generated</span>
+                                <span class="text-secondary">#f32...a9c</span>
+                            </div>
+                            <div class="flex justify-between border-b border-outline-variant/10 pb-2">
+                                <span class="text-slate-500">[10:15:22]</span>
+                                <span class="text-slate-200">Stage 1 Liquidity release confirmed</span>
+                                <span class="text-primary">SETTLED</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Property Details Card (High Density) -->
+                    <div class="bg-surface-container-low p-8 flex items-center">
+                        <div class="grid grid-cols-2 gap-12 w-full">
+                            <div>
+                                <h5 class="text-[10px] text-secondary font-bold uppercase tracking-widest mb-4">Project
+                                    Entity</h5>
+                                <p class="font-headline text-3xl font-bold tracking-tighter">THE OBSIDIAN TOWER</p>
+                                <p class="text-slate-500 text-xs mt-2">Moscow International Business Center, Plot 14</p>
+                            </div>
+                            <div class="flex flex-col justify-center border-l border-outline-variant pl-12">
+                                <h5 class="text-[10px] text-secondary font-bold uppercase tracking-widest mb-2">Total
+                                    Issue</h5>
+                                <p class="font-headline text-3xl font-bold tracking-tighter">450M USD</p>
+                                <p class="text-primary text-[10px] uppercase font-bold mt-1">Institutional Grade Ledger
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- Footer Implementation -->
+    <footer class="bg-slate-950 w-full py-12 px-8 border-t border-orange-900/10">
+        <div
+            class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-7xl mx-auto font-['Inter'] tabular-nums text-[10px] uppercase tracking-[0.1em]">
+            <div class="text-slate-500 opacity-80 hover:opacity-100">
+                © 2024 TRUSTBRICK ARCHITECTURAL LEDGER. SECURED BY SOLANA.
+            </div>
+            <div class="flex flex-wrap gap-6 md:justify-end">
+                <a class="text-slate-600 hover:text-orange-500 transition-colors" href="#">Terms of Issue</a>
+                <a class="text-slate-600 hover:text-orange-500 transition-colors" href="#">Risk Disclosure</a>
+                <a class="text-slate-600 hover:text-orange-500 transition-colors" href="#">Privacy</a>
+                <a class="text-slate-600 hover:text-orange-500 transition-colors flex items-center" href="#">
+                    <span class="w-1.5 h-1.5 bg-primary rounded-full mr-2"></span>
+                    Terminal Status
+                </a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
