@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { getProgram, getBuildingProjectPda, PROJECT_ID } from "@/utils/anchor";
 import { AnchorProvider, BN } from "@coral-xyz/anchor";
@@ -14,6 +14,48 @@ export default function AdminPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [loading, setLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!wallet.connected) return;
+    const checkInitialization = async () => {
+      try {
+        const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
+        const program = getProgram(provider);
+        const pda = getBuildingProjectPda();
+        await program.account.buildingProject.fetch(pda);
+        setIsInitialized(true);
+      } catch (err: any) {
+        if (err.message.includes("Account does not exist")) {
+           setIsInitialized(false);
+        }
+      }
+    };
+    checkInitialization();
+  }, [wallet.connected, connection]);
+
+  const handleInitialize = async () => {
+    if (!wallet.connected || !wallet.publicKey) return;
+    try {
+      setLoading(true);
+      const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
+      const program = getProgram(provider);
+      
+      const tx = await program.methods.initialize(new BN(PROJECT_ID), BUILDER_PUBKEY)
+        .accounts({
+          admin: wallet.publicKey,
+        })
+        .rpc();
+        
+      alert(`✅ Контракт успешно инициализирован: ${tx}`);
+      setIsInitialized(true);
+    } catch (err: any) {
+      console.error(err);
+      alert("Ошибка инициализации: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleApproveStage = async (stageName: string, releaseSol: number) => {
     if (!wallet.connected || !wallet.publicKey) {
@@ -78,6 +120,17 @@ export default function AdminPanel() {
                 )}
                 {wallet.connected && (
                   <div className="flex space-x-4">
+                      {isInitialized === false && (
+                          <div className="bg-error-container/20 px-6 py-4 border-b-2 border-error">
+                            <p className="text-[10px] text-error uppercase tracking-tighter mb-2">Contract State Missing</p>
+                            <button 
+                                onClick={handleInitialize} 
+                                disabled={loading}
+                                className="bg-error text-on-error px-4 py-2 text-xs font-bold uppercase hover:opacity-80 transition-opacity">
+                                {loading ? "..." : "Initialize Ledger PDA"}
+                            </button>
+                          </div>
+                      )}
                       <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
                           <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Connected Node</p>
                           <p className="font-headline text-xl font-bold tabular-nums text-primary">{wallet.publicKey?.toBase58().substring(0,6)}...</p>

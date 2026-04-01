@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { LanguageProvider } from "@/components/LanguageContext";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
@@ -26,8 +27,10 @@ export default function RootLayout({
       </head>
       <body className="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
         <Providers>
-          <Navbar />
-          {children}
+          <LanguageProvider>
+            <Navbar />
+            {children}
+          </LanguageProvider>
         </Providers>
       </body>
     </html>
