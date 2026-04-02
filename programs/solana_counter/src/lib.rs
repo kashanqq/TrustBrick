@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
-use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
+use anchor_spl::token::{self, CloseAccount, Token, TokenAccount, Transfer as SplTransfer};
 
 
 declare_id!("5V7paXWrV6fhAMM7WPSvivWny49k9iiB9jyVFE1H4aE4");
@@ -114,7 +114,7 @@ pub mod trustbrick {
     pub fn list_token(ctx: Context<ListToken>, amount: u64, price_in_sol: u64) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
         listing.seller = ctx.accounts.seller.key();
-        listing.token_mint = ctx.accounts.seller_token_account.mint;
+        listing.token_mint = ctx.accounts.mint.key();
         listing.amount = amount;
         listing.price = price_in_sol;
 
@@ -166,6 +166,20 @@ pub mod trustbrick {
                 signer,
             ),
             listing.amount,
+        )?;
+
+        // Закрываем пустой токен-аккаунт PDA, чтобы вернуть rent за него (лампорты) продавцу
+        let cpi_accounts_close = CloseAccount {
+            account: ctx.accounts.p2p_escrow_wallet.to_account_info(),
+            destination: ctx.accounts.seller.to_account_info(),
+            authority: ctx.accounts.p2p_escrow_wallet.to_account_info(),
+        };
+        token::close_account(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts_close,
+                signer,
+            )
         )?;
 
         Ok(())
@@ -236,8 +250,9 @@ pub struct ReleaseFunds<'info> {
 pub struct ListToken<'info> {
     #[account(mut)]
     pub seller: Signer<'info>,
-    #[account(mut)]
+    #[account(mut, token::mint = mint)]
     pub seller_token_account: Account<'info, TokenAccount>,
+    pub mint: Account<'info, anchor_spl::token::Mint>,
     #[account(
         init, 
         payer = seller, 
@@ -249,7 +264,7 @@ pub struct ListToken<'info> {
         payer = seller,
         seeds = [b"p2p_escrow", listing.key().as_ref()],
         bump,
-        token::mint = seller_token_account.mint,
+        token::mint = mint,
         token::authority = p2p_escrow_wallet,
     )]
     pub p2p_escrow_wallet: Account<'info, TokenAccount>,
