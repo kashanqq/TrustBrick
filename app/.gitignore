@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local database
+/data/
+
+# solana test
+/test-ledger/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

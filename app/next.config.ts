@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
     "@coral-xyz/anchor",
     "@noble/curves",
     "@noble/hashes",
+    "@metaplex-foundation/umi",
+    "@metaplex-foundation/umi-bundle-defaults",
+    "@metaplex-foundation/mpl-token-metadata",
+    "@metaplex-foundation/mpl-toolbox",
+    "@metaplex-foundation/umi-uploader-irys",
   ],
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { getProgram, getBuildingProjectPda, PROJECT_ID } from "@/utils/anchor";
 import { AnchorProvider, BN } from "@coral-xyz/anchor";
@@ -10,11 +10,65 @@ import ClientWalletButton from "@/components/ClientWalletButton";
 
 const BUILDER_PUBKEY = new PublicKey("11111111111111111111111111111111");
 
+// ── Типы ──────────────────────────────────────────────────────────
+
+interface InvestorInfo {
+  wallet: string;
+  mintAddress: string;
+  amountSol: number;
+  stage: string;
+  createdAt: string;
+}
+
+interface InvestorsData {
+  totalInvestors: number;
+  totalInvestedSol: number;
+  stageCounts: Record<string, number>;
+  investors: InvestorInfo[];
+}
+
+// ── Конфигурация этапов ──────────────────────────────────────────
+
+const STAGE_CONFIG = [
+  {
+    key: "floor_1",
+    label: "ЭТАП 2: КАРКАС",
+    labelEn: "PHASE 2: SKELETON",
+    releaseSol: 5,
+    color: "bg-primary-container text-on-primary-container",
+    hoverColor: "hover:bg-primary",
+    shadow: "shadow-[0_10px_30px_-10px_rgba(194,65,12,0.5)]",
+  },
+  {
+    key: "floor_2",
+    label: "ЭТАП 3: СТЕНЫ",
+    labelEn: "PHASE 3: WALLS",
+    releaseSol: 5,
+    color: "bg-surface-container text-on-surface",
+    hoverColor: "hover:bg-surface-variant",
+    shadow: "",
+  },
+  {
+    key: "complete",
+    label: "ЭТАП 4: СДАЧА",
+    labelEn: "PHASE 4: COMPLETE",
+    releaseSol: 10,
+    color: "bg-surface-container text-on-surface",
+    hoverColor: "hover:bg-surface-variant",
+    shadow: "",
+  },
+];
+
 export default function AdminPanel() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [loading, setLoading] = useState(false);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
+  const [investorsData, setInvestorsData] = useState<InvestorsData | null>(null);
+  const [lastResult, setLastResult] = useState<any>(null);
+
+  // ── Загрузка состояния PDA ─────────────────────────────────────
 
   useEffect(() => {
     if (!wallet.connected) return;
@@ -33,6 +87,28 @@ export default function AdminPanel() {
     };
     checkInitialization();
   }, [wallet.connected, connection]);
+
+  // ── Загрузка списка инвесторов ─────────────────────────────────
+
+  const fetchInvestors = useCallback(async () => {
+    try {
+      const res = await fetch("/api/investors");
+      if (res.ok) {
+        const data: InvestorsData = await res.json();
+        setInvestorsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch investors:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvestors();
+    const interval = setInterval(fetchInvestors, 10000);
+    return () => clearInterval(interval);
+  }, [fetchInvestors]);
+
+  // ── Инициализация контракта ────────────────────────────────────
 
   const handleInitialize = async () => {
     if (!wallet.connected || !wallet.publicKey) return;
@@ -57,14 +133,25 @@ export default function AdminPanel() {
     }
   };
   
-  const handleApproveStage = async (stageName: string, releaseSol: number) => {
+  // ── Подтверждение этапа через Оракул ───────────────────────────
+
+  const handleConfirmStage = async (targetStage: string, releaseSol: number) => {
     if (!wallet.connected || !wallet.publicKey) {
       alert("Сначала подключите кошелек Оракула!");
       return;
     }
 
+    const confirmed = window.confirm(
+      `⚠️ Вы уверены?\n\nЭтап: ${targetStage}\nТранш: ${releaseSol} SOL\n\nЭто действие необратимо!`
+    );
+    if (!confirmed) return;
+
     try {
       setLoading(true);
+      setActiveAction(targetStage);
+      setLastResult(null);
+
+      // Вариант 1: Прямой вызов контракта с кошелька (как было)
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
       
@@ -77,19 +164,34 @@ export default function AdminPanel() {
         })
         .rpc();
 
-      alert(`✅ Транзакция успешна! Средства переведены Застройщику: ${tx}`);
-      
-      await fetch("/api/nft_metadata", {
+      console.log(`release_funds tx: ${tx}`);
+
+      // Вариант 2: Вызов backend oracle для обновления NFT
+      const oracleRes = await fetch("/api/nft_metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          newStage: stageName,
-          txSignature: tx
-        })
+          newStage: targetStage,
+          txSignature: tx,
+        }),
       });
+
+      const oracleData = await oracleRes.json();
+
+      setLastResult({
+        success: true,
+        txSignature: tx,
+        stage: targetStage,
+        nftUpdates: oracleData,
+      });
+
+      await fetchInvestors();
+
+      alert(`✅ Этап подтверждён! Транш ${releaseSol} SOL отправлен.\nTx: ${tx}`);
 
     } catch (err: any) {
       console.error(err);
+      setLastResult({ success: false, error: err.message });
       if (err.message.includes("Unauthorized")) {
          alert("Ошибка Безопасности: Ваш кошелек не является доверенным Оракулом!");
       } else {
@@ -97,12 +199,14 @@ export default function AdminPanel() {
       }
     } finally {
       setLoading(false);
+      setActiveAction(null);
     }
   };
 
   return (
     <main className="pt-20 min-h-screen bg-surface control-panel-grid relative">
         <div className="max-w-screen-2xl mx-auto p-8 lg:p-12 relative z-10">
+            {/* ── Header ──────────────────────────────────────── */}
             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 border-l-4 border-primary pl-6">
                 <div>
                     <div className="flex items-center space-x-3 mb-2">
@@ -136,14 +240,19 @@ export default function AdminPanel() {
                           <p className="font-headline text-xl font-bold tabular-nums text-primary">{wallet.publicKey?.toBase58().substring(0,6)}...</p>
                       </div>
                       <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Oracle Latency</p>
-                          <p className="font-headline text-xl font-bold tabular-nums">14ms</p>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Investors</p>
+                          <p className="font-headline text-xl font-bold tabular-nums">{investorsData?.totalInvestors ?? '—'}</p>
+                      </div>
+                      <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Total Invested</p>
+                          <p className="font-headline text-xl font-bold tabular-nums">{investorsData?.totalInvestedSol ?? '—'} SOL</p>
                       </div>
                   </div>
                 )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* ── Drone Feed ──────────────────────────────── */}
                 <div className="lg:col-span-8 bg-surface-container-low overflow-hidden relative group">
                     <div className="absolute top-4 left-4 z-10 bg-slate-950/80 backdrop-blur px-3 py-1 flex items-center space-x-2 border border-outline-variant/20">
                         <span className="material-symbols-outlined text-xs text-primary" data-icon="videocam">videocam</span>
@@ -173,6 +282,7 @@ export default function AdminPanel() {
                     </svg>
                 </div>
 
+                {/* ── Verification Panel ─────────────────────── */}
                 <div className="lg:col-span-4 flex flex-col gap-6">
                     <div className="bg-surface-container-high p-8 flex-1 border-t-4 border-secondary">
                         <h3 className="font-headline text-lg font-bold mb-6 flex items-center">
@@ -201,24 +311,83 @@ export default function AdminPanel() {
                                 </label>
                             </div>
                         </div>
+
+                        {/* ── Action Buttons ─────────────────── */}
                         <div className="mt-12 space-y-4">
-                            <button
-                                onClick={() => handleApproveStage("stage1-skeleton", 5)}
+                            {STAGE_CONFIG.map((stage) => (
+                              <button
+                                key={stage.key}
+                                onClick={() => handleConfirmStage(stage.key, stage.releaseSol)}
                                 disabled={!wallet.connected || loading}
-                                className="w-full bg-primary-container text-on-primary-container py-6 px-4 font-headline font-black text-lg tracking-tighter uppercase hover:bg-primary disabled:opacity-50 transition-all shadow-[0_10px_30px_-10px_rgba(194,65,12,0.5)] flex items-center justify-center">
+                                className={`w-full ${stage.color} py-5 px-4 font-headline font-black text-base tracking-tighter uppercase ${stage.hoverColor} disabled:opacity-50 transition-all ${stage.shadow} flex items-center justify-center border border-outline-variant/30`}
+                              >
                                 <span className="material-symbols-outlined mr-3" data-icon="lock_open">lock_open</span>
-                                {loading ? "ПРОЦЕСС..." : "АВТОРИЗОВАТЬ ТРАНШ 5 SOL"}
-                            </button>
-                            <button
-                                onClick={() => handleApproveStage("stage2-finished", 10)}
-                                disabled={!wallet.connected || loading}
-                                className="w-full bg-surface-container text-on-surface py-3 px-4 font-headline font-bold text-sm tracking-tighter uppercase hover:bg-surface-variant disabled:opacity-50 transition-all flex items-center justify-center border border-outline-variant">
-                                АВТОРИЗОВАТЬ ТРАНШ 10 SOL
-                            </button>
+                                {loading && activeAction === stage.key
+                                  ? "ПРОЦЕСС..."
+                                  : `${stage.label} — ${stage.releaseSol} SOL`
+                                }
+                              </button>
+                            ))}
                         </div>
+
+                        {/* ── Last Result ─────────────────────── */}
+                        {lastResult && (
+                          <div className={`mt-6 p-4 border text-xs font-mono ${lastResult.success ? 'border-primary/30 bg-primary/5' : 'border-error/30 bg-error/5'}`}>
+                            <p className={`font-bold mb-2 ${lastResult.success ? 'text-primary' : 'text-error'}`}>
+                              {lastResult.success ? '✅ CONFIRMED' : '❌ FAILED'}
+                            </p>
+                            {lastResult.txSignature && (
+                              <p className="text-slate-400 break-all">Tx: {lastResult.txSignature}</p>
+                            )}
+                            {lastResult.error && (
+                              <p className="text-error break-all">{lastResult.error}</p>
+                            )}
+                          </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* ── Investors Table ─────────────────────────────── */}
+            {investorsData && investorsData.investors.length > 0 && (
+              <div className="mt-8 bg-surface-container-low border border-outline-variant/20">
+                <div className="p-6 border-b border-outline-variant/20 flex items-center justify-between">
+                  <h3 className="font-headline text-lg font-bold flex items-center">
+                    <span className="material-symbols-outlined mr-2 text-primary" data-icon="groups">groups</span>
+                    INVESTOR LEDGER
+                  </h3>
+                  <span className="text-xs font-mono text-slate-500">{investorsData.totalInvestors} records</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-outline-variant/20 text-[10px] uppercase tracking-widest text-slate-500">
+                        <th className="text-left p-4">Wallet</th>
+                        <th className="text-left p-4">Mint</th>
+                        <th className="text-right p-4">Amount</th>
+                        <th className="text-center p-4">Stage</th>
+                        <th className="text-right p-4">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {investorsData.investors.map((inv, i) => (
+                        <tr key={inv.mintAddress} className="border-b border-outline-variant/10 hover:bg-surface-container/50 transition-colors">
+                          <td className="p-4 font-mono text-xs">{inv.wallet.substring(0, 8)}...{inv.wallet.slice(-4)}</td>
+                          <td className="p-4 font-mono text-xs text-primary">{inv.mintAddress.substring(0, 8)}...</td>
+                          <td className="p-4 text-right font-bold">{inv.amountSol} SOL</td>
+                          <td className="p-4 text-center">
+                            <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+                              {inv.stage}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right text-xs text-slate-500">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
         </div>
     </main>
   );
