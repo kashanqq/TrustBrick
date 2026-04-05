@@ -1,67 +1,83 @@
 @import "tailwindcss";
 
 @theme {
-  --color-on-background: #dae2fd;
-  --color-on-primary-fixed-variant: #832600;
-  --color-secondary-fixed-dim: #dfc29c;
-  --color-surface: #0b1326;
-  --color-error: #ffb4ab;
-  --color-on-primary-fixed: #390c00;
-  --color-surface-container-lowest: #060e20;
-  --color-on-primary: #5d1800;
-  --color-secondary-container: #5a4628;
-  --color-surface-container-low: #131b2e;
-  --color-surface-container-high: #222a3d;
-  --color-on-secondary-fixed: #281902;
-  --color-tertiary-fixed: #dce2f3;
-  --color-on-secondary-fixed-variant: #574326;
-  --color-on-error: #690005;
-  --color-inverse-surface: #dae2fd;
-  --color-on-secondary-container: #d0b48f;
-  --color-primary-fixed: #ffdbd0;
-  --color-error-container: #93000a;
-  --color-surface-bright: #31394d;
-  --color-secondary-fixed: #fddeb6;
-  --color-primary: #ffb59d;
-  --color-surface-tint: #ffb59d;
-  --color-on-secondary: #3f2d12;
-  --color-inverse-primary: #ac3400;
-  --color-on-surface: #dae2fd;
-  --color-secondary: #dfc29c;
-  --color-inverse-on-surface: #283044;
-  --color-surface-container-highest: #2d3449;
-  --color-surface-container: #171f33;
-  --color-tertiary-container: #666d7b;
-  --color-on-error-container: #ffdad6;
-  --color-on-tertiary-fixed: #151c27;
-  --color-surface-dim: #0b1326;
-  --color-on-tertiary: #2a313d;
-  --color-on-tertiary-container: #eaf0ff;
-  --color-surface-variant: #2d3449;
-  --color-tertiary: #c0c7d6;
-  --color-primary-fixed-dim: #ffb59d;
-  --color-on-tertiary-fixed-variant: #404754;
-  --color-primary-container: #c2410c;
-  --color-outline-variant: #59413a;
-  --color-on-primary-container: #ffece7;
-  --color-tertiary-fixed-dim: #c0c7d6;
-  --color-on-surface-variant: #e1bfb5;
-  --color-background: #0b1326;
-  --color-outline: #a88a81;
+  /* ─── Gold / Obsidian palette from site-design ─── */
+  --color-on-primary-container: #eecba0;
+  --color-secondary-fixed-dim: #d6d4d3;
+  --color-error-dim: #ba573f;
+  --color-surface-container-high: #1f2020;
+  --color-on-tertiary: #635e56;
+  --color-on-primary-fixed-variant: #715735;
+  --color-inverse-surface: #fcf8f8;
+  --color-primary: #e3c197;
+  --color-outline-variant: #484848;
+  --color-secondary-container: #3c3b3b;
+  --color-surface-variant: #252626;
+  --color-error: #ed7f64;
+  --color-secondary-fixed: #e4e2e1;
+  --color-on-error: #450900;
+  --color-on-primary: #533c1c;
+  --color-on-surface: #e7e5e4;
+  --color-primary-container: #5a4222;
+  --color-on-surface-variant: #acabaa;
+  --color-secondary-dim: #9f9d9d;
+  --color-on-tertiary-container: #5b564e;
+  --color-surface-container: #191a1a;
+  --color-on-error-container: #ff9b82;
+  --color-outline: #767575;
+  --color-surface-tint: #e3c197;
+  --color-on-tertiary-fixed-variant: #69645c;
+  --color-on-secondary-fixed: #3f3f3f;
+  --color-on-tertiary-fixed: #4c4740;
+  --color-tertiary-container: #f2eae0;
+  --color-background: #0e0e0e;
+  --color-surface: #0e0e0e;
+  --color-surface-bright: #2c2c2c;
+  --color-tertiary-dim: #e9e1d7;
+  --color-primary-fixed: #ffddb5;
+  --color-on-secondary-container: #c1bfbe;
+  --color-inverse-primary: #755a38;
+  --color-inverse-on-surface: #565554;
+  --color-error-container: #7e2b17;
+  --color-primary-dim: #d5b38a;
+  --color-secondary: #9f9d9d;
+  --color-surface-dim: #0e0e0e;
+  --color-tertiary: #fff8f2;
+  --color-on-background: #e7e5e4;
+  --color-primary-fixed-dim: #f2cfa4;
+  --color-surface-container-lowest: #000000;
+  --color-on-secondary-fixed-variant: #5c5b5b;
+  --color-surface-container-highest: #252626;
+  --color-surface-container-low: #131313;
+  --color-tertiary-fixed-dim: #e9e1d7;
+  --color-on-primary-fixed: #523b1b;
+  --color-on-secondary: #202020;
+  --color-tertiary-fixed: #f8f0e5;
+
+  /* Accent color for highlights */
+  --color-accent: #A2845E;
 
   --font-headline: "Space Grotesk", sans-serif;
-  --font-body: "Inter", sans-serif;
-  --font-label: "Inter", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
 }
 
 @layer utilities {
   .glass-panel {
-    background: rgba(45, 52, 73, 0.6);
+    background: rgba(31, 32, 32, 0.6);
     backdrop-filter: blur(12px);
   }
 
-  .hero-gradient {
-    background: radial-gradient(circle at 50% 50%, rgba(194, 65, 12, 0.15) 0%, rgba(11, 19, 38, 0) 70%);
+  .spectral-outline {
+    border: 1px solid rgba(72, 72, 72, 0.1);
+  }
+
+  .tonal-shift {
+    background-color: #131313;
+  }
+
+  .bronze-gradient {
+    background: linear-gradient(135deg, #A2845E 0%, #191a1a 100%);
   }
 
   .text-tabular {
@@ -69,33 +85,50 @@
   }
 
   .ghost-border {
-    outline: 1px solid rgba(89, 65, 58, 0.15);
+    outline: 1px solid rgba(72, 72, 72, 0.15);
   }
-  
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .animate-marquee {
     animation: marquee 25s linear infinite;
   }
-  
+
   .text-shadow-sm {
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 
   .staircase-path {
-      clip-path: polygon(0 100%, 0 85%, 15% 85%, 15% 70%, 30% 70%, 30% 60%, 45% 60%, 45% 45%, 60% 45%, 60% 30%, 75% 30%, 75% 20%, 100% 20%, 100% 100%);
+    clip-path: polygon(0 100%, 0 85%, 15% 85%, 15% 70%, 30% 70%, 30% 60%, 45% 60%, 45% 45%, 60% 45%, 60% 30%, 75% 30%, 75% 20%, 100% 20%, 100% 100%);
   }
 }
 
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+}
+
 ::-webkit-scrollbar {
-    width: 4px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: #0e0e0e;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #59413a;
-    border-radius: 10px;
+  background: #1f2020;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A2845E;
 }
 
 @keyframes marquee {
@@ -108,17 +141,20 @@ html, body {
   padding: 0;
 }
 
-/* Изменения стиля кнопки кошелька чтобы она подходила под дизайн */
+/* Wallet adapter button overrides */
 .wallet-adapter-button {
-  background-color: var(--color-primary-container) !important;
-  color: var(--color-on-primary-container) !important;
+  background-color: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
   font-family: var(--font-headline) !important;
   font-weight: bold !important;
-  border-radius: 0.375rem !important;
+  border-radius: 0px !important;
   height: auto !important;
   padding: 0.625rem 1.5rem !important;
-  transition: transform 0.2s !important;
+  transition: opacity 0.2s !important;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
 }
 .wallet-adapter-button:hover {
-  transform: scale(0.95);
+  opacity: 0.9;
 }
