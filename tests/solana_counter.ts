@@ -1,48 +1,105 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { SolanaCounter } from "../target/types/solana_counter";
+import { Trustbrick } from "../target/types/trustbrick";
 import { expect } from "chai";
+import {
+  TOKEN_PROGRAM_ID,
+  createMint,
+  createAccount,
+  mintTo,
+  getAccount,
+} from "@solana/spl-token";
 
 describe("TrustBrick Escrow Tests", () => {
-  // Настраиваем провайдера (подключение к локальному тест-валидатору)
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.SolanaCounter as Program<SolanaCounter>;
+  const program = anchor.workspace.Trustbrick as Program<Trustbrick>;
 
-  // Создаем тестовых участников (Keypairs)
   const admin = anchor.web3.Keypair.generate();
   const builder = anchor.web3.Keypair.generate();
   const investor = anchor.web3.Keypair.generate();
-
-  // Уникальный ID нашей стройки
+  const buyer = anchor.web3.Keypair.generate(); // for P2P market
+  
   const projectId = new anchor.BN(1);
 
-  // Вычисляем адрес "Сейфа" (PDA)
-  // Seeds: [b"escrow", project_id.to_le_bytes()]
-  const [buildingProjectPda] = anchor.web3.PublicKey.findProgramAddressSync(
+  const [buildingProjectPda, bump] = anchor.web3.PublicKey.findProgramAddressSync(
     [
       Buffer.from("escrow"), 
-      projectId.toArrayLike(Buffer, "le", 8) // u64 в виде little-endian байтов
+      projectId.toArrayLike(Buffer, "le", 8)
     ],
     program.programId
   );
 
+  let mint: anchor.web3.PublicKey;
+  let pdaTokenInventory: anchor.web3.PublicKey;
+  let investorTokenAccount: anchor.web3.PublicKey;
+  let buyerTokenAccount: anchor.web3.PublicKey;
+
   before(async () => {
-    // Выдаем бесплатные тестовые SOL для оплаты транзакций
-    const airdropAmount = 10 * anchor.web3.LAMPORTS_PER_SOL; // 10 SOL каждому
+    // В тестах Anchor локальный валидатор сразу готов.
+    const airdropAmount = 10 * anchor.web3.LAMPORTS_PER_SOL; 
     await Promise.all([
       provider.connection.requestAirdrop(admin.publicKey, airdropAmount),
       provider.connection.requestAirdrop(builder.publicKey, airdropAmount),
       provider.connection.requestAirdrop(investor.publicKey, airdropAmount),
+      provider.connection.requestAirdrop(buyer.publicKey, airdropAmount),
     ]);
     
-    // Ждем подтверждения эйрдропов
+    // Ждем подтверждения эйрдропа
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Создаем токен ASTANA_BRICK
+    mint = await createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      9
+    );
+
+    // Создаем Token Account для PDA
+    const pdaInventoryKeypair = anchor.web3.Keypair.generate();
+    pdaTokenInventory = await createAccount(
+      provider.connection,
+      admin,
+      mint,
+      buildingProjectPda,
+      pdaInventoryKeypair
+    );
+
+    // Выпускаем токены на PDA (например 1,000,000)
+    await mintTo(
+      provider.connection,
+      admin,
+      mint,
+      pdaTokenInventory,
+      admin,
+      1_000_000 * (10 ** 9)
+    );
+
+    // Создаем TokenAccount для инвестора 
+    const investorInventoryKeypair = anchor.web3.Keypair.generate();
+    investorTokenAccount = await createAccount(
+      provider.connection,
+      admin,
+      mint,
+      investor.publicKey,
+      investorInventoryKeypair
+    );
+
+    // TokenAccount для покупателя
+    const buyerInventoryKeypair = anchor.web3.Keypair.generate();
+    buyerTokenAccount = await createAccount(
+      provider.connection,
+      admin,
+      mint,
+      buyer.publicKey,
+      buyerInventoryKeypair
+    );
   });
 
   it("1. Инициализирует стройку (Сейф создан)", async () => {
-    // Админ вызывает функцию
     await program.methods
       .initialize(projectId, builder.publicKey)
       .accounts({
@@ -51,49 +108,53 @@ describe("TrustBrick Escrow Tests", () => {
       .signers([admin])
       .rpc();
 
-    // Загружаем стейт сейфа и проверяем
     const accountData = await program.account.buildingProject.fetch(buildingProjectPda);
 
     expect(accountData.admin.toBase58()).to.equal(admin.publicKey.toBase58());
     expect(accountData.builder.toBase58()).to.equal(builder.publicKey.toBase58());
     expect(accountData.totalInvested.toNumber()).to.equal(0);
+    expect(accountData.releasedAmount.toNumber()).to.equal(0);
     expect(accountData.stage).to.equal(0);
     expect(accountData.projectId.toNumber()).to.equal(1);
     
-    console.log("   ✅ Сейф успешно проинициализирован");
+    console.log("Сейф успешно проинициализирован");
   });
 
-  it("2. Инвестор заносит деньги (Invest)", async () => {
-    const investAmount = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL); // 5 SOL
+  it("2. Инвестор покупает доли (Buy Shares)", async () => {
+    // 5 SOL
+    const investAmount = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL); 
 
     await program.methods
-      .invest(projectId, investAmount)
+      .buyShares(projectId, investAmount)
       .accounts({
         investor: investor.publicKey,
+        pdaTokenInventory: pdaTokenInventory,
+        investorTokenAccount: investorTokenAccount,
       })
       .signers([investor])
       .rpc();
 
-    // Проверяем, что счетчик инвестиций в сейфе увеличился
     const accountData = await program.account.buildingProject.fetch(buildingProjectPda);
     expect(accountData.totalInvested.toString()).to.equal(investAmount.toString());
 
-    // Физически проверяем баланс PDA в сети
     const pdaBalance = await provider.connection.getBalance(buildingProjectPda);
-    expect(pdaBalance).to.be.at.least(investAmount.toNumber()); // at least, т.к. были еще лампорты на ренту
+    // На PDA может быть баланс аренды + наши инвестиции
+    expect(pdaBalance).to.be.at.least(investAmount.toNumber()); 
+
+    // Проверяем токены у инвестора
+    const investorTokensInfo = await getAccount(provider.connection, investorTokenAccount);
+    // Курс 1 SOL = 100 токенов (в минимальных единицах)
+    const expectedTokens = BigInt(investAmount.toNumber() * 100);
+    expect(investorTokensInfo.amount).to.equal(expectedTokens);
     
-    console.log(`   ✅ Инвестор занес 5 SOL. Сейф имеет стейт: ${accountData.totalInvested.toString()}`);
+    console.log(`Инвестор занес 5 SOL. Токенов: ${investorTokensInfo.amount}`);
   });
 
-  it("3. Оракул (Админ) переводит первый транш застройщику (Release Funds)", async () => {
-    // Узнаем баланс застройщика ДО перевода
+  it("3. Админ переводит первый транш застройщику (Release Funds)", async () => {
     const builderBalanceBefore = await provider.connection.getBalance(builder.publicKey);
 
-    // Выделяем 1 SOL как первый транш
-    const releaseAmount = new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL); 
-
     await program.methods
-      .releaseFunds(projectId, releaseAmount)
+      .releaseFunds(projectId)
       .accounts({
         admin: admin.publicKey,
         builder: builder.publicKey,
@@ -101,39 +162,97 @@ describe("TrustBrick Escrow Tests", () => {
       .signers([admin])
       .rpc();
 
-    // Баланс застройщика ПОСЛЕ
     const builderBalanceAfter = await provider.connection.getBalance(builder.publicKey);
+    // 1 этап из 5 = 20% от 5 SOL = 1 SOL
+    const expectedRelease = 1 * anchor.web3.LAMPORTS_PER_SOL; 
     
-    // Проверяем, что застройщик реально получил +1 SOL
-    expect(builderBalanceAfter - builderBalanceBefore).to.equal(releaseAmount.toNumber());
+    expect(builderBalanceAfter - builderBalanceBefore).to.equal(expectedRelease);
 
-    // Проверяем, что этап (stage) увеличился
     const accountData = await program.account.buildingProject.fetch(buildingProjectPda);
     expect(accountData.stage).to.equal(1);
-    
-    console.log(`   ✅ Застройщик успешно получил транш! Этап стройки перешел на уровень: ${accountData.stage}`);
+    expect(accountData.releasedAmount.toNumber()).to.equal(expectedRelease);
   });
-  
-  it("4. Неизвестный человек не может украсть деньги", async () => {
-    // Пытаемся вызвать releaseFunds от лица левого человека (investor) вместо admin
-    const releaseAmount = new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL); 
-    
+
+  it("4. Неизвестный человек не может выпустить средства (Отказ подписи)", async () => {
     try {
       await program.methods
-        .releaseFunds(projectId, releaseAmount)
+        .releaseFunds(projectId)
         .accounts({
-          admin: investor.publicKey, // Подмена!
+          admin: investor.publicKey, // Подмена
           builder: builder.publicKey,
         })
         .signers([investor])
         .rpc();
         
-      // Если код дошел сюда - это провал
       expect.fail("Транзакция должна была упасть, но не упала!");
-    } catch (err) {
-      // Ожидаем кастомную ошибку EscrowError::Unauthorized
+    } catch (err: any) {
       expect(err.message).to.include("Unauthorized");
-      console.log("   ✅ Ошибка подтверждена: только Админ может отпирать сейф!");
     }
   });
+
+  let p2pListingPda: anchor.web3.PublicKey;
+  let listingKeypair: anchor.web3.Keypair;
+
+  it("5. Инвестор выставляет токены на продажу P2P (List Token)", async () => {
+    listingKeypair = anchor.web3.Keypair.generate();
+    p2pListingPda = listingKeypair.publicKey;
+
+    // Выставляем 10 токенов
+    const amountToList = new anchor.BN(10 * 10**9);
+    // За цену 0.1 SOL
+    const priceInSol = new anchor.BN(0.1 * anchor.web3.LAMPORTS_PER_SOL);
+
+    const [p2pEscrowWalletPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("p2p_escrow"), p2pListingPda.toBuffer()],
+      program.programId
+    );
+
+    await program.methods
+      .listToken(amountToList, priceInSol)
+      .accounts({
+        seller: investor.publicKey,
+        sellerTokenAccount: investorTokenAccount,
+        mint: mint,
+        listing: p2pListingPda,
+      })
+      .signers([investor, listingKeypair])
+      .rpc();
+
+    // Проверяем что токены переведены
+    const escrowTokenInfo = await getAccount(provider.connection, p2pEscrowWalletPda);
+    expect(escrowTokenInfo.amount).to.equal(BigInt(amountToList.toNumber()));
+  });
+
+  it("6. Покупатель выкупает токены с P2P (Buy From Market)", async () => {
+    const listingDataBefore = await program.account.marketListing.fetch(p2pListingPda);
+    
+    const [p2pEscrowWalletPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("p2p_escrow"), p2pListingPda.toBuffer()],
+      program.programId
+    );
+
+    await program.methods
+      .buyFromMarket()
+      .accounts({
+        buyer: buyer.publicKey,
+        listing: p2pListingPda,
+        buyerTokenAccount: buyerTokenAccount,
+      })
+      .signers([buyer])
+      .rpc();
+
+    // Проверяем, что токены пришли покупателю
+    const buyerTokenInfo = await getAccount(provider.connection, buyerTokenAccount);
+    expect(buyerTokenInfo.amount).to.equal(BigInt(listingDataBefore.amount.toNumber()));
+    
+    // Проверяем, что аккаунт листинга удалился
+    try {
+      await program.account.marketListing.fetch(p2pListingPda);
+      expect.fail("Listing should have been closed");
+    } catch (e) {
+      // Account does not exist
+      expect(e.message).to.not.equal("Listing should have been closed");
+    }
+  });
+
 });
