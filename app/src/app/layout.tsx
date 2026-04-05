@@ -7,7 +7,7 @@ import { LanguageProvider } from "@/components/LanguageContext";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "ЖК Хакатон-Тауэр | TrustBrick",
+  title: "TrustBrick",
   description: "Инвестируйте в безопасное будущее с помощью смарт-контрактов Solana",
 };
 

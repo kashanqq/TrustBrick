@@ -3,7 +3,7 @@ use anchor_lang::system_program::{transfer, Transfer};
 use anchor_spl::token::{self, CloseAccount, Token, TokenAccount, Transfer as SplTransfer};
 
 
-declare_id!("5V7paXWrV6fhAMM7WPSvivWny49k9iiB9jyVFE1H4aE4");
+declare_id!("4Acsi2H93uxQq6gEANgBMxiZu9MP2VSxZV6uBRAiTXSs");
 
 #[program]
 pub mod trustbrick {
@@ -46,10 +46,11 @@ pub mod trustbrick {
 
         // Сиды для подписи от имени PDA
         let project_id_bytes = project_id.to_le_bytes();
+        let bump_bytes = [ctx.bumps.building_project]; // Берем бамп в массив
         let seeds = &[
-            b"escrow",
+            b"escrow".as_ref(),
             project_id_bytes.as_ref(),
-            &[ctx.bumps.building_project],
+            bump_bytes.as_ref(),
         ];
         let signer = &[&seeds[..]];
 
@@ -146,10 +147,11 @@ pub mod trustbrick {
         transfer(cpi_context_sol, listing.price)?;
 
         // 2. Контракт переводит токены из P2P-сейфа покупателю
+        let bump_bytes = [ctx.bumps.p2p_escrow_wallet];
         let seeds = &[
-            b"p2p_escrow",
+            b"p2p_escrow".as_ref(),
             listing.to_account_info().key.as_ref(),
-            &[ctx.bumps.p2p_escrow_wallet],
+            bump_bytes.as_ref(),
         ];
         let signer = &[&seeds[..]];
 

@@ -8,7 +8,9 @@ import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import Image from "next/image";
 import ClientWalletButton from "@/components/ClientWalletButton";
 
-const BUILDER_PUBKEY = new PublicKey("11111111111111111111111111111111");
+// Builder pubkey для локальной разработки — кошелёк admin'а (задаётся в handleInitialize ниже)
+// В продакшне заменить на реальный адрес застройщика
+const DEFAULT_BUILDER = "11111111111111111111111111111111"; // placeholder, будет перезаписан
 
 // ── Типы ──────────────────────────────────────────────────────────
 
@@ -68,21 +70,35 @@ export default function AdminPanel() {
   const [investorsData, setInvestorsData] = useState<InvestorsData | null>(null);
   const [lastResult, setLastResult] = useState<any>(null);
 
+  // ── Auto-airdrop на localnet ─────────────────────────────────────
+
+  useEffect(() => {
+    if (!wallet.publicKey || !wallet.connected) return;
+    const endpoint = connection.rpcEndpoint;
+    if (endpoint.includes("localhost") || endpoint.includes("127.0.0.1")) {
+      connection.getBalance(wallet.publicKey).then((bal) => {
+        if (bal < LAMPORTS_PER_SOL) {
+          console.log("Localnet: airdrop 2 SOL to", wallet.publicKey!.toBase58());
+          connection.requestAirdrop(wallet.publicKey!, 2 * LAMPORTS_PER_SOL)
+            .then((sig) => connection.confirmTransaction(sig))
+            .catch((e) => console.warn("Airdrop failed:", e));
+        }
+      });
+    }
+  }, [wallet.publicKey, wallet.connected, connection]);
+
   // ── Загрузка состояния PDA ─────────────────────────────────────
 
   useEffect(() => {
     if (!wallet.connected) return;
     const checkInitialization = async () => {
       try {
-        const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
-        const program = getProgram(provider);
         const pda = getBuildingProjectPda();
-        await program.account.buildingProject.fetch(pda);
-        setIsInitialized(true);
+        const accountInfo = await connection.getAccountInfo(pda);
+        setIsInitialized(accountInfo !== null);
       } catch (err: any) {
-        if (err.message.includes("Account does not exist")) {
-           setIsInitialized(false);
-        }
+        console.error("Check init error:", err);
+        setIsInitialized(false);
       }
     };
     checkInitialization();
@@ -117,7 +133,11 @@ export default function AdminPanel() {
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
       
-      const tx = await program.methods.initialize(new BN(PROJECT_ID), BUILDER_PUBKEY)
+      // На локальной разработке admin == builder для простоты тестирования.
+      // В продакшне передать отдельный PublicKey застройщика.
+      const builderForInit = wallet.publicKey;
+
+      const tx = await program.methods.initialize(new BN(PROJECT_ID), builderForInit)
         .accounts({
           admin: wallet.publicKey,
         })
@@ -151,16 +171,22 @@ export default function AdminPanel() {
       setActiveAction(targetStage);
       setLastResult(null);
 
-      // Вариант 1: Прямой вызов контракта с кошелька (как было)
+      // Читаем builder из PDA чтобы не использовать захардкоженный placeholder
+      const pda = getBuildingProjectPda();
+      const accountInfo = await connection.getAccountInfo(pda);
+      if (!accountInfo) throw new Error("Контракт не инициализирован! Сначала нажмите 'Initialize Ledger PDA'");
+      // BuildingProject layout: 8 (disc) + 32 (admin) + 32 (builder) ...
+      const builderBytes = accountInfo.data.subarray(8 + 32, 8 + 32 + 32);
+      const builderPubkey = new PublicKey(builderBytes);
+      console.log("Builder prochitan iz PDA:", builderPubkey.toBase58());
+
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
-      
-      const releaseAmount = new BN(releaseSol * LAMPORTS_PER_SOL);
-      
-      const tx = await program.methods.releaseFunds(new BN(PROJECT_ID), releaseAmount)
+
+      const tx = await program.methods.releaseFunds(new BN(PROJECT_ID))
         .accounts({
           admin: wallet.publicKey,
-          builder: BUILDER_PUBKEY,
+          builder: builderPubkey,
         })
         .rpc();
 

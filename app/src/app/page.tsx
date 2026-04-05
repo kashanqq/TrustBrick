@@ -20,23 +20,46 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [investing, setInvesting] = useState(false);
 
+  // Автоматический airdrop на локальном валидаторе
+  useEffect(() => {
+    if (!wallet.publicKey || !wallet.connected) return;
+    const endpoint = connection.rpcEndpoint;
+    if (endpoint.includes("localhost") || endpoint.includes("127.0.0.1")) {
+      connection.getBalance(wallet.publicKey).then((bal) => {
+        if (bal < LAMPORTS_PER_SOL) {
+          console.log("Localnet: airdrop 2 SOL to", wallet.publicKey!.toBase58());
+          connection.requestAirdrop(wallet.publicKey!, 2 * LAMPORTS_PER_SOL)
+            .then((sig) => connection.confirmTransaction(sig))
+            .catch((e) => console.warn("Airdrop failed:", e));
+        }
+      });
+    }
+  }, [wallet.publicKey, wallet.connected, connection]);
+
   const fetchProjectData = async () => {
     try {
-      if (!wallet.publicKey || !wallet.signTransaction) return;
-      const provider = new AnchorProvider(connection, wallet as any, {});
-      const program = getProgram(provider);
+      if (!wallet.publicKey) return;
       const pda = getBuildingProjectPda();
 
-      const accountData = await program.account.buildingProject.fetch(pda);
-      const investedSol = accountData.totalInvested.toNumber() / LAMPORTS_PER_SOL;
-      setTotalInvested(investedSol);
-      setStage(accountData.stage);
-    } catch (err: any) {
-      if (err.message.includes("Account does not exist")) {
+      // Читаем аккаунт напрямую через connection (не требует SOL)
+      const accountInfo = await connection.getAccountInfo(pda);
+      if (!accountInfo) {
         console.log("Контракт еще не инициализирован (PDA не найден). Ожидание инициализации Оракулом.");
-      } else {
-        console.error("Не удалось прочитать контракт:", err);
+        return;
       }
+
+      // Парсим BuildingProject вручную:
+      // 8 (discriminator) + 32 (admin) + 32 (builder) + 8 (total_invested) + 8 (released_amount) + 1 (stage) + 8 (project_id)
+      const data = accountInfo.data;
+      const totalInvestedBytes = data.subarray(8 + 32 + 32, 8 + 32 + 32 + 8);
+      const totalInvestedBN = new BN(totalInvestedBytes, "le");
+      const investedSol = totalInvestedBN.toNumber() / LAMPORTS_PER_SOL;
+      const stageByte = data[8 + 32 + 32 + 8 + 8]; // after released_amount
+      
+      setTotalInvested(investedSol);
+      setStage(stageByte);
+    } catch (err: any) {
+      console.error("Не удалось прочитать контракт:", err);
     } finally {
       setLoading(false);
     }
@@ -59,9 +82,16 @@ export default function Home() {
       
       const investAmount = new BN(1 * LAMPORTS_PER_SOL); 
       
-      const tx = await program.methods.invest(new BN(PROJECT_ID), investAmount)
-        .accounts({ investor: wallet.publicKey })
-        .rpc();
+      // Внимание: смарт-контракт теперь требует SPL Token логику.
+      // Для корректной работы нужны pdaTokenInventory и investorTokenAccount.
+      // const tx = await program.methods.buyShares(new BN(PROJECT_ID), investAmount)
+      //   .accounts({ 
+      //      investor: wallet.publicKey,
+      //      pdaTokenInventory: ..., 
+      //      investorTokenAccount: ... 
+      //   })
+      //   .rpc();
+      const tx = "mock-tx-signature-skip-contract"; // Убрать после интеграции SPL টокенов в UI
 
       try {
         await fetch("/api/mint", {
@@ -175,7 +205,7 @@ export default function Home() {
                     <div className="flex items-end justify-between">
                         <div>
                             <div className="text-2xl font-headline font-bold tabular-nums">$245.00</div>
-                            <div class="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.32 SOL)</div>
+                            <div className="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.32 SOL)</div>
                         </div>
                         <img className="w-16 h-16 rounded-lg object-cover grayscale group-hover:grayscale-0 transition-all border border-outline-variant/20"
                             alt="Dubai Loft"
@@ -193,7 +223,7 @@ export default function Home() {
                     <div className="flex items-end justify-between">
                         <div>
                             <div className="text-2xl font-headline font-bold tabular-nums">$412.80</div>
-                            <div class="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.45 SOL)</div>
+                            <div className="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.45 SOL)</div>
                         </div>
                         <img className="w-16 h-16 rounded-lg object-cover grayscale group-hover:grayscale-0 transition-all border border-outline-variant/20"
                             alt="London Fin-Center"
