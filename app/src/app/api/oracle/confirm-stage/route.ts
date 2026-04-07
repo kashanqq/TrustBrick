@@ -36,7 +36,7 @@ import {
   fetchDigitalAsset,
 } from '@metaplex-foundation/mpl-token-metadata';
 import { publicKey } from '@metaplex-foundation/umi';
-import idl from '@/idl/trustbrick.json';
+import idl from '@/idl/solana_counter.json';
 
 // ── Типы ──────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ async function releaseFundsOnChain(
   console.log(`  Amount: ${releaseAmountSol} SOL`);
 
   const tx = await program.methods
-    .releaseFunds(projectIdBN)
+    .releaseFunds(projectIdBN, releaseAmount)
     .accounts({
       admin: adminKeypair.publicKey,
       builder: builderPubkey,

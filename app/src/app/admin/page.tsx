@@ -7,10 +7,9 @@ import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import Image from "next/image";
 import ClientWalletButton from "@/components/ClientWalletButton";
+import { useLanguage } from "@/components/LanguageContext";
 
-// Builder pubkey для локальной разработки — кошелёк admin'а (задаётся в handleInitialize ниже)
-// В продакшне заменить на реальный адрес застройщика
-const DEFAULT_BUILDER = "11111111111111111111111111111111"; // placeholder, будет перезаписан
+const BUILDER_PUBKEY = new PublicKey("11111111111111111111111111111111");
 
 // ── Типы ──────────────────────────────────────────────────────────
 
@@ -62,6 +61,7 @@ const STAGE_CONFIG = [
 ];
 
 export default function AdminPanel() {
+  const { language } = useLanguage();
   const { connection } = useConnection();
   const wallet = useWallet();
   const [loading, setLoading] = useState(false);
@@ -70,35 +70,21 @@ export default function AdminPanel() {
   const [investorsData, setInvestorsData] = useState<InvestorsData | null>(null);
   const [lastResult, setLastResult] = useState<any>(null);
 
-  // ── Auto-airdrop на localnet ─────────────────────────────────────
-
-  useEffect(() => {
-    if (!wallet.publicKey || !wallet.connected) return;
-    const endpoint = connection.rpcEndpoint;
-    if (endpoint.includes("localhost") || endpoint.includes("127.0.0.1")) {
-      connection.getBalance(wallet.publicKey).then((bal) => {
-        if (bal < LAMPORTS_PER_SOL) {
-          console.log("Localnet: airdrop 2 SOL to", wallet.publicKey!.toBase58());
-          connection.requestAirdrop(wallet.publicKey!, 2 * LAMPORTS_PER_SOL)
-            .then((sig) => connection.confirmTransaction(sig))
-            .catch((e) => console.warn("Airdrop failed:", e));
-        }
-      });
-    }
-  }, [wallet.publicKey, wallet.connected, connection]);
-
   // ── Загрузка состояния PDA ─────────────────────────────────────
 
   useEffect(() => {
     if (!wallet.connected) return;
     const checkInitialization = async () => {
       try {
+        const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
+        const program = getProgram(provider);
         const pda = getBuildingProjectPda();
-        const accountInfo = await connection.getAccountInfo(pda);
-        setIsInitialized(accountInfo !== null);
+        await program.account.buildingProject.fetch(pda);
+        setIsInitialized(true);
       } catch (err: any) {
-        console.error("Check init error:", err);
-        setIsInitialized(false);
+        if (err.message.includes("Account does not exist")) {
+           setIsInitialized(false);
+        }
       }
     };
     checkInitialization();
@@ -133,11 +119,7 @@ export default function AdminPanel() {
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
       
-      // На локальной разработке admin == builder для простоты тестирования.
-      // В продакшне передать отдельный PublicKey застройщика.
-      const builderForInit = wallet.publicKey;
-
-      const tx = await program.methods.initialize(new BN(PROJECT_ID), builderForInit)
+      const tx = await program.methods.initialize(new BN(PROJECT_ID), BUILDER_PUBKEY)
         .accounts({
           admin: wallet.publicKey,
         })
@@ -162,7 +144,9 @@ export default function AdminPanel() {
     }
 
     const confirmed = window.confirm(
-      `⚠️ Вы уверены?\n\nЭтап: ${targetStage}\nТранш: ${releaseSol} SOL\n\nЭто действие необратимо!`
+      language === 'ru' 
+        ? `⚠️ Вы уверены?\n\nЭтап: ${targetStage}\nТранш: ${releaseSol} SOL\n\nЭто действие необратимо!`
+        : `⚠️ Are you sure?\n\nPhase: ${targetStage}\nTranche: ${releaseSol} SOL\n\nThis action is irreversible!`
     );
     if (!confirmed) return;
 
@@ -171,22 +155,16 @@ export default function AdminPanel() {
       setActiveAction(targetStage);
       setLastResult(null);
 
-      // Читаем builder из PDA чтобы не использовать захардкоженный placeholder
-      const pda = getBuildingProjectPda();
-      const accountInfo = await connection.getAccountInfo(pda);
-      if (!accountInfo) throw new Error("Контракт не инициализирован! Сначала нажмите 'Initialize Ledger PDA'");
-      // BuildingProject layout: 8 (disc) + 32 (admin) + 32 (builder) ...
-      const builderBytes = accountInfo.data.subarray(8 + 32, 8 + 32 + 32);
-      const builderPubkey = new PublicKey(builderBytes);
-      console.log("Builder prochitan iz PDA:", builderPubkey.toBase58());
-
+      // Вариант 1: Прямой вызов контракта с кошелька (как было)
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
-
-      const tx = await program.methods.releaseFunds(new BN(PROJECT_ID))
+      
+      const releaseAmount = new BN(releaseSol * LAMPORTS_PER_SOL);
+      
+      const tx = await program.methods.releaseFunds(new BN(PROJECT_ID), releaseAmount)
         .accounts({
           admin: wallet.publicKey,
-          builder: builderPubkey,
+          builder: BUILDER_PUBKEY,
         })
         .rpc();
 
@@ -213,15 +191,19 @@ export default function AdminPanel() {
 
       await fetchInvestors();
 
-      alert(`✅ Этап подтверждён! Транш ${releaseSol} SOL отправлен.\nTx: ${tx}`);
+      alert(language === 'ru' 
+        ? `✅ Этап подтверждён! Транш ${releaseSol} SOL отправлен.\nTx: ${tx}` 
+        : `✅ Phase confirmed! Tranche ${releaseSol} SOL sent.\nTx: ${tx}`);
 
     } catch (err: any) {
       console.error(err);
       setLastResult({ success: false, error: err.message });
       if (err.message.includes("Unauthorized")) {
-         alert("Ошибка Безопасности: Ваш кошелек не является доверенным Оракулом!");
+         alert(language === 'ru' 
+            ? "Ошибка Безопасности: Ваш кошелек не является доверенным Оракулом!" 
+            : "Security Error: Your wallet is not a trusted Oracle!");
       } else {
-         alert("Сбой транзакции: " + err.message);
+         alert(language === 'ru' ? "Сбой транзакции: " + err.message : "Transaction failed: " + err.message);
       }
     } finally {
       setLoading(false);
@@ -244,7 +226,7 @@ export default function AdminPanel() {
                 </div>
                 {!wallet.connected && (
                     <div className="flex items-center bg-surface-container px-6 py-4 border-b-2 border-error">
-                      <span className="text-error mr-4 text-xs font-bold uppercase tracking-widest">Auth Required</span>
+                      <span className="text-error mr-4 text-xs font-bold uppercase tracking-widest">{language === 'ru' ? 'Требуется Авторизация' : 'Auth Required'}</span>
                       <ClientWalletButton />
                     </div>
                 )}
@@ -252,25 +234,25 @@ export default function AdminPanel() {
                   <div className="flex space-x-4">
                       {isInitialized === false && (
                           <div className="bg-error-container/20 px-6 py-4 border-b-2 border-error">
-                            <p className="text-[10px] text-error uppercase tracking-tighter mb-2">Contract State Missing</p>
+                            <p className="text-[10px] text-error uppercase tracking-tighter mb-2">{language === 'ru' ? 'Контракт не инициализирован' : 'Contract State Missing'}</p>
                             <button 
                                 onClick={handleInitialize} 
                                 disabled={loading}
                                 className="bg-error text-on-error px-4 py-2 text-xs font-bold uppercase hover:opacity-80 transition-opacity">
-                                {loading ? "..." : "Initialize Ledger PDA"}
+                                {loading ? "..." : (language === 'ru' ? "Инициализировать контракт" : "Initialize Ledger PDA")}
                             </button>
                           </div>
                       )}
                       <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Connected Node</p>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{language === 'ru' ? 'Подключенная Нода' : 'Connected Node'}</p>
                           <p className="font-headline text-xl font-bold tabular-nums text-primary">{wallet.publicKey?.toBase58().substring(0,6)}...</p>
                       </div>
                       <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Investors</p>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{language === 'ru' ? 'Инвесторы' : 'Investors'}</p>
                           <p className="font-headline text-xl font-bold tabular-nums">{investorsData?.totalInvestors ?? '—'}</p>
                       </div>
                       <div className="bg-surface-container px-6 py-4 border-b-2 border-outline-variant">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Total Invested</p>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{language === 'ru' ? 'Собрано' : 'Total Invested'}</p>
                           <p className="font-headline text-xl font-bold tabular-nums">{investorsData?.totalInvestedSol ?? '—'} SOL</p>
                       </div>
                   </div>
@@ -317,8 +299,8 @@ export default function AdminPanel() {
                         </h3>
                         <div className="space-y-6">
                             <div className="bg-surface-container p-4">
-                                <span className="text-[10px] text-secondary uppercase font-bold tracking-widest block mb-2">Phase Identifier</span>
-                                <p className="font-headline text-2xl font-bold tracking-tight">ЭТАП 2: ФУНДАМЕНТ</p>
+                                <span className="text-[10px] text-secondary uppercase font-bold tracking-widest block mb-2">{language === 'ru' ? 'Идентификатор Этапа' : 'Phase Identifier'}</span>
+                                <p className="font-headline text-2xl font-bold tracking-tight">{language === 'ru' ? 'ЭТАП 2: ФУНДАМЕНТ' : 'PHASE 2: SKELETON'}</p>
                             </div>
                             <div className="space-y-4 pt-4">
                                 <label className="flex items-start group cursor-pointer">
@@ -333,7 +315,9 @@ export default function AdminPanel() {
                                         <input className="peer h-6 w-6 border-2 border-outline bg-transparent text-primary focus:ring-0 rounded-none appearance-none checked:bg-primary" type="checkbox" />
                                         <span className="material-symbols-outlined absolute opacity-0 peer-checked:opacity-100 text-on-primary-fixed pointer-events-none text-xl" data-icon="check">check</span>
                                     </div>
-                                    <span className="ml-4 text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Check geometric alignment (LIDAR)</span>
+                                    <span className="ml-4 text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                                      {language === 'ru' ? 'Проверка геометрического соответствия (LIDAR)' : 'Check geometric alignment (LIDAR)'}
+                                    </span>
                                 </label>
                             </div>
                         </div>
@@ -349,8 +333,8 @@ export default function AdminPanel() {
                               >
                                 <span className="material-symbols-outlined mr-3" data-icon="lock_open">lock_open</span>
                                 {loading && activeAction === stage.key
-                                  ? "ПРОЦЕСС..."
-                                  : `${stage.label} — ${stage.releaseSol} SOL`
+                                  ? (language === 'ru' ? "ПРОЦЕСС..." : "PROCESSING...")
+                                  : `${language === 'ru' ? stage.label : (stage.labelEn || stage.label)} — ${stage.releaseSol} SOL`
                                 }
                               </button>
                             ))}

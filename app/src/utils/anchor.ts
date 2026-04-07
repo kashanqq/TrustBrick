@@ -1,15 +1,15 @@
 import { AnchorProvider, Program, Idl, BN } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { Trustbrick } from "../../../target/types/trustbrick";
-import idl from "../idl/trustbrick.json";
+import { SolanaCounter } from "../../../target/types/solana_counter";
+import idl from "../idl/solana_counter.json";
 
 export const PROGRAM_ID = new PublicKey(idl.address);
 
 // Идентификатор нашего первого объекта
 export const PROJECT_ID = 1;
 
-export function getProgram(provider: AnchorProvider): Program<Trustbrick> {
-  return new Program(idl as Idl, provider) as unknown as Program<Trustbrick>;
+export function getProgram(provider: AnchorProvider): Program<SolanaCounter> {
+  return new Program(idl as Idl, provider) as unknown as Program<SolanaCounter>;
 }
 
 export function getBuildingProjectPda(): PublicKey {

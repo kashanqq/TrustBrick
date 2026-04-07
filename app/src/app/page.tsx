@@ -8,58 +8,34 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/components/LanguageContext";
 
-const GOAL_SOL = 50; 
+const GOAL_SOL = 50;
 
 export default function Home() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { t } = useLanguage();
-  
+
   const [totalInvested, setTotalInvested] = useState(0);
   const [stage, setStage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [investing, setInvesting] = useState(false);
 
-  // Автоматический airdrop на локальном валидаторе
-  useEffect(() => {
-    if (!wallet.publicKey || !wallet.connected) return;
-    const endpoint = connection.rpcEndpoint;
-    if (endpoint.includes("localhost") || endpoint.includes("127.0.0.1")) {
-      connection.getBalance(wallet.publicKey).then((bal) => {
-        if (bal < LAMPORTS_PER_SOL) {
-          console.log("Localnet: airdrop 2 SOL to", wallet.publicKey!.toBase58());
-          connection.requestAirdrop(wallet.publicKey!, 2 * LAMPORTS_PER_SOL)
-            .then((sig) => connection.confirmTransaction(sig))
-            .catch((e) => console.warn("Airdrop failed:", e));
-        }
-      });
-    }
-  }, [wallet.publicKey, wallet.connected, connection]);
-
   const fetchProjectData = async () => {
     try {
-      if (!wallet.publicKey) return;
+      if (!wallet.publicKey || !wallet.signTransaction) return;
+      const provider = new AnchorProvider(connection, wallet as any, {});
+      const program = getProgram(provider);
       const pda = getBuildingProjectPda();
-
-      // Читаем аккаунт напрямую через connection (не требует SOL)
-      const accountInfo = await connection.getAccountInfo(pda);
-      if (!accountInfo) {
-        console.log("Контракт еще не инициализирован (PDA не найден). Ожидание инициализации Оракулом.");
-        return;
-      }
-
-      // Парсим BuildingProject вручную:
-      // 8 (discriminator) + 32 (admin) + 32 (builder) + 8 (total_invested) + 8 (released_amount) + 1 (stage) + 8 (project_id)
-      const data = accountInfo.data;
-      const totalInvestedBytes = data.subarray(8 + 32 + 32, 8 + 32 + 32 + 8);
-      const totalInvestedBN = new BN(totalInvestedBytes, "le");
-      const investedSol = totalInvestedBN.toNumber() / LAMPORTS_PER_SOL;
-      const stageByte = data[8 + 32 + 32 + 8 + 8]; // after released_amount
-      
+      const accountData = await program.account.buildingProject.fetch(pda);
+      const investedSol = accountData.totalInvested.toNumber() / LAMPORTS_PER_SOL;
       setTotalInvested(investedSol);
-      setStage(stageByte);
+      setStage(accountData.stage);
     } catch (err: any) {
-      console.error("Не удалось прочитать контракт:", err);
+      if (err.message.includes("Account does not exist")) {
+        console.log("Contract not initialized yet");
+      } else {
+        console.error("Failed to read contract:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -79,40 +55,29 @@ export default function Home() {
       setInvesting(true);
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
-      
-      const investAmount = new BN(1 * LAMPORTS_PER_SOL); 
-      
-      // Внимание: смарт-контракт теперь требует SPL Token логику.
-      // Для корректной работы нужны pdaTokenInventory и investorTokenAccount.
-      // const tx = await program.methods.buyShares(new BN(PROJECT_ID), investAmount)
-      //   .accounts({ 
-      //      investor: wallet.publicKey,
-      //      pdaTokenInventory: ..., 
-      //      investorTokenAccount: ... 
-      //   })
-      //   .rpc();
-      const tx = "mock-tx-signature-skip-contract"; // Убрать после интеграции SPL টокенов в UI
-
+      const investAmount = new BN(1 * LAMPORTS_PER_SOL);
+      const tx = await program.methods
+        .invest(new BN(PROJECT_ID), investAmount)
+        .accounts({ investor: wallet.publicKey })
+        .rpc();
       try {
         await fetch("/api/mint", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             investor: wallet.publicKey.toBase58(),
-            amount: 1, 
-            txSignature: tx
-          })
+            amount: 1,
+            txSignature: tx,
+          }),
         });
-        alert("✅ Инвестиция принята. Доля приобретена!");
+        alert("✅ Investment accepted. Share acquired!");
       } catch (backendErr) {
-        console.error("Бэкенд не смог выдать NFT:", backendErr);
+        console.error("Backend failed to issue NFT:", backendErr);
       }
-
       await fetchProjectData();
-
     } catch (err: any) {
-      console.error("Ошибка при инвестировании:", err);
-      alert("Ошибка транзакции: " + err.message);
+      console.error("Investment error:", err);
+      alert("Transaction error: " + err.message);
     } finally {
       setInvesting(false);
     }
@@ -122,221 +87,199 @@ export default function Home() {
 
   return (
     <>
-      <main className="pt-24 pb-20 min-h-[calc(100vh-80px)]">
-        <section className="max-w-7xl mx-auto px-8 mb-16 relative z-10">
-            <div className="relative overflow-hidden rounded-xl h-[420px] group border border-outline-variant/20">
-                <img className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    alt="Hero Building"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1ggLQ6Hf5RWRFs0pUwWO4zxDOZmT-Fz2dEzdMzX6NCiOwKMPU2TB17qsfqX_g81l_FwMJcGxg_E0_DSuwAyXBo74yG2LNsJEZeC67CTr7arUA37EPn27a5GiW7pNJi8C5PGlBmYXv4A82xVHsIWCHjNjReyTDCXfm4YSDtIJIZP-Tv6hbGm9Mh51S6FakMVaw56xutdHu-New4tbdtaXl2WAsmpijzl9KjiwfDnsQu-zKbDm26qmJ6bITdVF_Z4sbebrs2PnhVB0" />
-                <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/80 to-transparent"></div>
-                <div className="relative h-full flex flex-col justify-center px-12 max-w-2xl">
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="w-8 h-[1px] bg-primary"></span>
-                        <span className="text-secondary tracking-[0.2em] uppercase text-xs font-bold">{t("hero.subtitle")}</span>
-                    </div>
-                    <h1 className="text-6xl font-headline font-bold text-white leading-tight mb-6 tracking-tight">{t("hero.title")}</h1>
-                    <p className="text-on-surface-variant text-lg mb-8 leading-relaxed max-w-lg">{t("hero.desc")}</p>
-                    <div className="flex gap-4">
-                        <button className="bg-gradient-to-br from-primary to-primary-container text-on-primary-fixed font-bold px-8 py-3 rounded flex items-center gap-2 hover:brightness-110 transition-all">
-                            {t("hero.btn.explore")}
-                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                        </button>
-                        <button className="bg-surface-container-highest/80 backdrop-blur text-white px-8 py-3 rounded border border-white/10 hover:bg-surface-container-highest transition-colors">
-                            {t("hero.btn.whitepaper")}
-                        </button>
-                    </div>
-                </div>
+      {/* Hero Canvas */}
+      <section className="pt-20 px-12 pb-24">
+        <div className="grid grid-cols-12 gap-8 items-end">
+          <div className="col-span-12 md:col-span-7">
+            <h1 className="text-7xl font-headline font-light tracking-tighter text-on-surface mb-8 leading-[0.9]">
+              Liquidate <br />
+              <span className="text-accent font-medium italic">Concrete</span>
+            </h1>
+            <p className="font-body text-lg text-on-surface-variant max-w-md leading-relaxed border-l border-accent/30 pl-8 ml-2">
+              Institutional-grade asset tokenization for the sovereign era. High-liquidity real
+              estate pools backed by immutable settlement layers.
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-5 bg-surface-container-low p-8 relative overflow-hidden spectral-outline">
+            <div className="flex justify-between items-start mb-12">
+              <div>
+                <span className="block font-body text-[10px] uppercase tracking-[0.3em] text-on-surface-variant mb-2">
+                  Network Volume
+                </span>
+                <span className="block font-headline text-4xl font-bold text-on-surface tracking-tighter">
+                  $2.4B+
+                </span>
+              </div>
+              <div className="flex space-x-1">
+                <span className="w-1 h-3 bg-accent"></span>
+                <span className="w-1 h-6 bg-accent"></span>
+                <span className="w-1 h-4 bg-accent"></span>
+              </div>
             </div>
-        </section>
-
-        <section className="max-w-7xl mx-auto px-8 mb-16 relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-surface-container-low p-6 rounded-lg border-l-2 border-primary">
-                    <div className="text-secondary text-[10px] uppercase tracking-widest mb-1">{t("stats.tvl")}</div>
-                    <div className="text-2xl font-headline font-bold tabular-nums">$1,248,592,010</div>
-                </div>
-                <div className="bg-surface-container-low p-6 rounded-lg border-l-2 border-secondary">
-                    <div className="text-secondary text-[10px] uppercase tracking-widest mb-1">{t("stats.tps")}</div>
-                    <div className="text-2xl font-headline font-bold tabular-nums">65,000 TPS</div>
-                </div>
-                <div className="bg-surface-container-low p-6 rounded-lg border-l-2 border-tertiary">
-                    <div className="text-secondary text-[10px] uppercase tracking-widest mb-1">{t("stats.investors")}</div>
-                    <div className="text-2xl font-headline font-bold tabular-nums">14,802</div>
-                </div>
-                <div className="bg-surface-container-low p-6 rounded-lg border-l-2 border-primary-container">
-                    <div className="text-secondary text-[10px] uppercase tracking-widest mb-1">{t("stats.yield")}</div>
-                    <div className="text-2xl font-headline font-bold tabular-nums text-tertiary">14.2% AVG</div>
-                </div>
+            <div className="h-32 w-full flex items-end space-x-1 overflow-hidden opacity-40">
+              <div className="flex-1 bg-surface-bright h-[20%]"></div>
+              <div className="flex-1 bg-surface-bright h-[35%]"></div>
+              <div className="flex-1 bg-surface-bright h-[25%]"></div>
+              <div className="flex-1 bg-surface-bright h-[45%]"></div>
+              <div className="flex-1 bg-accent h-[60%]"></div>
+              <div className="flex-1 bg-surface-bright h-[40%]"></div>
+              <div className="flex-1 bg-surface-bright h-[75%]"></div>
+              <div className="flex-1 bg-surface-bright h-[55%]"></div>
+              <div className="flex-1 bg-accent h-[90%]"></div>
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        <section className="max-w-7xl mx-auto px-8 mb-20 relative z-10">
-            <h2 className="text-xl font-headline font-bold mb-6 flex items-center gap-2 border-b border-outline-variant/20 pb-4">
-                <span className="material-symbols-outlined text-primary">trending_up</span>
-                {t("trending.title")}
+      {/* Live Assets Grid */}
+      <section className="px-12 pb-24">
+        <div className="flex justify-between items-end mb-16">
+          <div>
+            <h2 className="font-headline text-xs font-bold uppercase tracking-[0.5em] text-accent mb-4">
+              Live Assets
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-surface-container p-6 rounded-xl hover:bg-surface-container-high transition-all group border border-outline-variant/10">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <div className="text-on-surface-variant text-xs uppercase tracking-wider mb-1">{t("trending.hot")}</div>
-                            <h3 className="font-headline font-bold text-lg">Hackathon Tower</h3>
-                        </div>
-                        <span className="text-tertiary bg-tertiary/10 px-2 py-1 rounded text-xs font-bold">+18.4% APY</span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-2xl font-headline font-bold tabular-nums">1 SOL</div>
-                            <div className="text-[10px] text-slate-500">{t("trending.unitPrice")} (1 SOL)</div>
-                        </div>
-                        <img className="w-16 h-16 rounded-lg object-cover grayscale group-hover:grayscale-0 transition-all border border-outline-variant/20"
-                            alt="Hackathon Tower"
-                            src="/stage-1.png" />
-                    </div>
-                </div>
-                <div className="bg-surface-container p-6 rounded-xl hover:bg-surface-container-high transition-all group border border-outline-variant/10">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <div className="text-on-surface-variant text-xs uppercase tracking-wider mb-1">{t("trending.new")}</div>
-                            <h3 className="font-headline font-bold text-lg">Dubai Marina Loft</h3>
-                        </div>
-                        <span className="text-tertiary bg-tertiary/10 px-2 py-1 rounded text-xs font-bold">+12.1% APY</span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-2xl font-headline font-bold tabular-nums">$245.00</div>
-                            <div className="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.32 SOL)</div>
-                        </div>
-                        <img className="w-16 h-16 rounded-lg object-cover grayscale group-hover:grayscale-0 transition-all border border-outline-variant/20"
-                            alt="Dubai Loft"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8-Ow4CT9O_b08CJzLH74d60idNlxIoBH7UzkjQS-vx7xqBbcH45NyTKJTKCpJpHIZes0MLfvZFr9Zd4IXP7OHljfP7mh511HMDph6zc4CbnD_Z3VhDc6SmGMyMVlOwGpoK4s42k6a4eEfi9HA3xeQIJEL5QUH7AI38EhLBNqwp-h8Kmp2-h-Vgn0YGz7D5Z3t6QI3qppS98eKFbvkV00_IIdJf_jsUGlWcjXofSU8wP18zEaHBdACT3UHNPaj_01ZGBVWLRfsXuI" />
-                    </div>
-                </div>
-                <div className="bg-surface-container p-6 rounded-xl hover:bg-surface-container-high transition-all group border border-outline-variant/10">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <div className="text-on-surface-variant text-xs uppercase tracking-wider mb-1">{t("trending.stable")}</div>
-                            <h3 className="font-headline font-bold text-lg">London Fin-Center</h3>
-                        </div>
-                        <span className="text-tertiary bg-tertiary/10 px-2 py-1 rounded text-xs font-bold">+9.8% APY</span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <div className="text-2xl font-headline font-bold tabular-nums">$412.80</div>
-                            <div className="text-[10px] text-slate-500">{t("trending.unitPrice")} (0.45 SOL)</div>
-                        </div>
-                        <img className="w-16 h-16 rounded-lg object-cover grayscale group-hover:grayscale-0 transition-all border border-outline-variant/20"
-                            alt="London Fin-Center"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDu5WjZc2WvbANMGyfH2zyZszN6UzoArtH9m9sZgPqH0nrvyFTkRUeGZWeMvD9FuAWQFjuFyUtInMKmtK6dWDifTmgkde0HQWVJMO-nw3G-pqJH-wekySt4EiiVEHcaZIaYnrx-XBoe5IVzgmYmLJNsKmaqgan1gm5qjy8YXSOte2ovQsXpA1MGpe3YZdOpRFFRCqSKgjgQg0dU8z6ejNqd_225nUxGiPsS83toSJyBLb2o44DO1vmoMhjdd5hUvUlvNqftDvFgIQA" />
-                    </div>
-                </div>
+            <p className="text-[10px] text-on-surface-variant font-body uppercase tracking-widest">
+              Active opportunities on-chain
+            </p>
+          </div>
+          <div className="flex space-x-8 text-[10px] uppercase tracking-widest font-bold">
+            <button className="text-on-surface border-b border-accent pb-1">All Sectors</button>
+            <button className="text-on-surface-variant hover:text-on-surface pb-1">Logistics</button>
+            <button className="text-on-surface-variant hover:text-on-surface pb-1">Residential</button>
+            <button className="text-on-surface-variant hover:text-on-surface pb-1">Mixed Use</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          {/* Card 1: Elysian Tower */}
+          <div className="group cursor-pointer">
+            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
+              <img
+                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC17S9hOE0DWk7ymSuzqfgieEVI2TPQT6kAuCkxluNPxY1NCIZqK8xp99QYwDcGdQmgIHiiSRNpRx8CjaqGZO-gTgfdjfm_4D10frAKQxfWhLSaqeqZCEw8CFZRFdczwOD1tMxXjcJQxxs1J9Q-9wjr8so0JP_ecyPQS7_9hmA1BTrJDm-9xxZ4KXDOqzI5DfIEIELI2_m2vhO-KRdt1WUIf7V8YMJWRhvFleCWEM8Szn39HMJRvm7S1U1ZU6-JQzecbzPS6u7aNZzj"
+                alt="Elysian Tower"
+              />
+              <div className="absolute top-0 right-0 p-4">
+                <span className="bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                  Minting Live
+                </span>
+              </div>
             </div>
-        </section>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
+                  Elysian Tower
+                </h3>
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
+                  Prime Midtown District
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="block text-xl font-headline font-light text-on-surface">$124.5M</span>
+                <span className="block text-[10px] text-accent uppercase tracking-tighter font-bold">
+                  8.4% Target Yield
+                </span>
+              </div>
+            </div>
+          </div>
 
-        <section className="max-w-7xl mx-auto px-8 relative z-10">
-            <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-headline font-bold border-l-4 border-primary pl-4">{t("ledger.title")}</h2>
-                <div className="flex gap-4">
-                    <button className="text-sm font-bold text-primary border-b-2 border-primary pb-1">{t("ledger.all")}</button>
-                    <button className="text-sm text-slate-500 hover:text-white transition-colors pb-1">{t("ledger.residential")}</button>
-                    <button className="text-sm text-slate-500 hover:text-white transition-colors pb-1">{t("ledger.commercial")}</button>
-                    <button className="text-sm text-slate-500 hover:text-white transition-colors pb-1">{t("ledger.industrial")}</button>
-                </div>
+          {/* Card 2: Vertex Logistics */}
+          <div className="group cursor-pointer">
+            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
+              <img
+                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAD1eYxPy0mgxvFvW9aV2NLQeyaeSzVA3GNxPGk7-s_OyHuIY54b_cvXPEKZ4ROyGcloti5tTfrAtRBgLf4LLhWEIX1DjMFbnDo8gnWNqTQFV7yFarjQwi8Ru_RO13DG9JbuJHXJAWf7WNwhVyvu_tW1zmndEIaSe2dGVhDKak3mIsRFOEGPoGnss5qqgTZmNuISFlS-ce7dzLNUffptqidoTP4Iaj7JHBtEZ6yM3R0wRRM2Dyjxd67AK_8poDCcYyfu8nyFZS71E_L"
+                alt="Vertex Logistics"
+              />
+              <div className="absolute top-0 right-0 p-4">
+                <span className="bg-surface-container-high text-on-surface-variant text-[10px] font-bold uppercase tracking-widest px-3 py-1 spectral-outline">
+                  Sold Out
+                </span>
+              </div>
             </div>
-            <div className="overflow-x-auto bg-surface-container-low rounded-xl border border-outline-variant/10 p-4">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="text-[10px] uppercase tracking-widest text-slate-500 border-b border-white/5">
-                            <th className="pb-4 pt-2 px-4 font-normal">{t("ledger.col.project")}</th>
-                            <th className="pb-4 pt-2 px-4 font-normal">{t("ledger.col.apy")}</th>
-                            <th className="pb-4 pt-2 px-4 font-normal">{t("ledger.col.price")}</th>
-                            <th className="pb-4 pt-2 px-4 font-normal">{t("ledger.col.progress")}</th>
-                            <th className="pb-4 pt-2 px-4 font-normal text-right">{t("ledger.col.action")}</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        <tr className="group hover:bg-surface-container transition-colors">
-                            <td className="py-5 px-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded overflow-hidden bg-slate-800 flex-shrink-0">
-                                        <img className="w-full h-full object-cover" alt="Hackathon Tower" src="/stage-1.png" />
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-slate-100">Hackathon Tower</div>
-                                        <div className="text-[10px] text-slate-500">SOL-0001 • LIVE</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td className="py-5 px-4 tabular-nums text-tertiary font-bold">18.42%</td>
-                            <td className="py-5 px-4">
-                                <div className="tabular-nums font-bold">1.0 SOL</div>
-                            </td>
-                            <td className="py-5 px-4">
-                                <div className="w-full max-w-[200px]">
-                                    <div className="flex justify-between text-[10px] mb-1 tabular-nums text-slate-400 font-bold">
-                                        <span>{progressPercent.toFixed(1)}% Filled</span>
-                                        <span>{totalInvested} / {GOAL_SOL} SOL</span>
-                                    </div>
-                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary shadow-[0_0_10px_rgba(255,181,157,0.5)] transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td className="py-5 px-4 text-right">
-                                <button
-                                    onClick={handleInvest}
-                                    disabled={!wallet.connected || loading || investing}
-                                    className="px-6 py-2.5 bg-primary/20 text-primary font-bold text-xs rounded hover:bg-primary hover:text-on-primary-fixed transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                    {investing ? t("project.investing") : t("project.investButton")}
-                                </button>
-                            </td>
-                        </tr>
-                        
-                        <tr className="group hover:bg-surface-container transition-colors">
-                            <td className="py-5 px-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded overflow-hidden bg-slate-800 flex-shrink-0">
-                                        <img className="w-full h-full object-cover" alt="Dubai" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFesfW_XkXgZYUyiHU-gnSPGw3agfOeBeCoQ8YDksWKNAeLaz-Le99GVlpxJFd_tmqDizDlHJuVtFu2aO348RdZBYDvMzekLH5wkK6rC-cwgVMiP4WL_utal6oTBx6QrJb_inhEvVHN7ndlnO_lQQZFMR-Jfsx6tA3TEI8GEqW5DzCboUo6GjGG8OfiCJipCxga7xcEWfPi74_q9r3BQhmNDtz1lutrfgxS0e0z47wMd9ZQsOkG5JQoNYOelcgzpl8PpYb9g69Ajs" />
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-slate-100">Dubai Marina Loft</div>
-                                        <div className="text-[10px] text-slate-500">UAE-8812 • Exclusive</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td className="py-5 px-4 tabular-nums text-tertiary font-bold">12.10%</td>
-                            <td className="py-5 px-4">
-                                <div className="tabular-nums font-bold">$245.00</div>
-                                <div className="text-[10px] text-slate-500">0.32 SOL</div>
-                            </td>
-                            <td className="py-5 px-4">
-                                <div className="w-full max-w-[200px]">
-                                    <div className="flex justify-between text-[10px] mb-1 tabular-nums text-slate-400">
-                                        <span>42% Filled</span>
-                                        <span>$12M / $30M</span>
-                                    </div>
-                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                        <div className="h-full bg-slate-500" style={{ width: '42%' }}></div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td className="py-5 px-4 text-right">
-                                <button className="px-6 py-2.5 bg-slate-800 text-slate-400 font-bold text-xs rounded hover:text-white transition-all">
-                                    {t("ledger.btn.mint")}
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
+                  Vertex Logistics
+                </h3>
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
+                  Global Trade Corridor
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="block text-xl font-headline font-light text-on-surface">$89.2M</span>
+                <span className="block text-[10px] text-on-surface-variant uppercase tracking-tighter font-bold">
+                  Historical 7.2%
+                </span>
+              </div>
             </div>
-            <div className="mt-8 flex justify-center">
-                <button className="text-sm font-bold text-secondary flex items-center gap-2 group hover:text-primary transition-colors">
-                    {t("ledger.btn.more")}
-                    <span className="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="keyboard_double_arrow_right">keyboard_double_arrow_right</span>
-                </button>
+          </div>
+
+          {/* Card 3: Atrium Plaza */}
+          <div className="group cursor-pointer">
+            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
+              <img
+                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8dhyW0mXM41Gavbw1-FEbARJsV6z4ludx-CBAV7CiOtSjcmMQvUmwX-IMhZjUtWWGrhmJr__-lo7a5W2h0n-c-7vczOXkXlQCgnGpgHBfGIzHZJOgOu7sg-ci39EuPHe_G5rewSNLsgdzWYVOAQ_u2bc4cLGvg95S9VowAahw9euqdOf7-D4k_l6Nura4ZeL9-8LJWFHOqZ5eQ6BV_Vze5U8XGzYonEYhK42z87q5gSXMlQcEd13VYXx2VglvuRyLvY-f_o-cw9d-"
+                alt="Atrium Plaza"
+              />
+              <div className="absolute top-0 right-0 p-4">
+                <span className="bg-surface-container-low text-accent text-[10px] font-bold uppercase tracking-widest px-3 py-1 spectral-outline">
+                  Upcoming
+                </span>
+              </div>
             </div>
-        </section>
-      </main>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
+                  Atrium Plaza
+                </h3>
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
+                  Tech Hub Cluster
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="block text-xl font-headline font-light text-on-surface">$210.0M</span>
+                <span className="block text-[10px] text-accent uppercase tracking-tighter font-bold">
+                  Registration Open
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Compliance Banner */}
+      <section className="px-12 pb-32">
+        <div className="grid grid-cols-12 gap-0 border-t border-on-surface-variant/10 pt-24">
+          <div className="col-span-12 md:col-span-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-accent">
+              Protocol Status
+            </span>
+          </div>
+          <div className="col-span-12 md:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-12 mt-8 md:mt-0">
+            <div>
+              <h4 className="font-headline text-lg font-bold text-on-surface mb-4 uppercase">
+                Asset Custody
+              </h4>
+              <p className="font-body text-sm text-on-surface-variant leading-relaxed">
+                Multi-Sig Asset Custody &amp; Settlement. All underlying physical titles are vaulted
+                via SEC-qualified custodians with institutional-grade hardware security modules.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-headline text-lg font-bold text-on-surface mb-4 uppercase">
+                Regulatory
+              </h4>
+              <p className="font-body text-sm text-on-surface-variant leading-relaxed">
+                Global Regulatory Compliance. Fully automated KYC/AML/Sanction screening at the
+                protocol level ensuring all secondary market transfers remain within legal
+                frameworks.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </>
   );
