@@ -1,0 +1,48 @@
+# Anchor / Solana
+.anchor/
+target/
+**/*.rs.bk
+test-ledger/
+
+# Solana Keys (BE CAREFUL)
+**/*.json
+!**/package.json
+!**/tsconfig.json
+!**/next.config.ts
+!**/postcss.config.mjs
+!**/eslint.config.mjs
+!**/Cargo.toml
+!**/Anchor.toml
+!**/rust-toolchain.toml
+
+# Node.js
+node_modules/
+dist/
+build/
+.yarn/
+.pnp*
+.npm
+yarn-error.log
+npm-debug.log*
+
+# Next.js
+.next/
+out/
+app/public/uploads/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
