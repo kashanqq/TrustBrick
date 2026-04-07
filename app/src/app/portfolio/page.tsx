@@ -6,49 +6,73 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 
-const MOCK_HOLDINGS = [
-  {
-    id: "hackathon",
-    name: "Hackathon Tower",
-    ticker: "NFT-HACK-TB",
-    avgBuy: 140.50,
-    currentPrice: 142.85,
-    quantity: 1.0,
-    image: "/stage-1.png",
-  },
-  {
-    id: "dubai",
-    name: "Dubai Marina Loft",
-    ticker: "UAE-8812",
-    avgBuy: 200.00,
-    currentPrice: 245.00,
-    quantity: 3.5,
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8-Ow4CT9O_b08CJzLH74d60idNlxIoBH7UzkjQS-vx7xqBbcH45NyTKJTKCpJpHIZes0MLfvZFr9Zd4IXP7OHljfP7mh511HMDph6zc4CbnD_Z3VhDc6SmGMyMVlOwGpoK4s42k6a4eEfi9HA3xeQIJEL5QUH7AI38EhLBNqwp-h8Kmp2-h-Vgn0YGz7D5Z3t6QI3qppS98eKFbvkV00_IIdJf_jsUGlWcjXofSU8wP18zEaHBdACT3UHNPaj_01ZGBVWLRfsXuI",
-  },
-  {
-    id: "london",
-    name: "London Fin-Center",
-    ticker: "UK-0019",
-    avgBuy: 430.00,
-    currentPrice: 412.80,
-    quantity: 0.8,
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDu5WjZc2WvbANMGyfH2zyZszN6UzoArtH9m9sZgPqH0nrvyFTkRUeGZWeMvD9FuAWQFjuFyUtInMKmtK6dWDifTmgkde0HQWVJMO-nw3G-pqJH-wekySt4EiiVEHcaZIaYnrx-XBoe5IVzgmYmLJNsKmaqgan1gm5qjy8YXSOte2ovQsXpA1MGpe3YZdOpRFFRCqSKgjgQg0dU8z6ejNqd_225nUxGiPsS83toSJyBLb2o44DO1vmoMhjdd5hUvUlvNqftDvFgIQA",
-  },
-];
+interface Holding {
+  id: string; // Mint address
+  name: string;
+  ticker: string;
+  avgBuy: number;
+  currentPrice: number;
+  quantity: number;
+  image: string;
+}
 
 export default function Portfolio() {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
   const { t } = useLanguage();
 
-  const [holdings, setHoldings] = useState(MOCK_HOLDINGS);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!connected) {
-      setHoldings(MOCK_HOLDINGS.map((h) => ({ ...h, quantity: 0 })));
-    } else {
-      setHoldings(MOCK_HOLDINGS);
+    if (!connected || !publicKey) {
+      setHoldings([]);
+      return;
     }
-  }, [connected]);
+
+    const fetchPortfolio = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/portfolio?wallet=${publicKey.toBase58()}`);
+        const data = await res.json();
+        
+        if (data.holdings) {
+          const rawHoldings: Holding[] = data.holdings.map((h: any) => {
+            const solVal = parseFloat(h.solValue?.replace("SOL", "").trim() || "1");
+            return {
+              id: h.mint,
+              name: h.name,
+              ticker: "TBRICK",
+              avgBuy: 100, // Base parity price $100
+              currentPrice: 100, // Base parity price $100
+              quantity: solVal, // 1 SOL = 1 Share
+              image: h.image,
+            };
+          });
+          
+          const groupedMap = new Map<string, Holding>();
+          for (const h of rawHoldings) {
+            if (groupedMap.has(h.name)) {
+              const existing = groupedMap.get(h.name)!;
+              const totalCost = (existing.avgBuy * existing.quantity) + (h.avgBuy * h.quantity);
+              existing.quantity += h.quantity;
+              existing.avgBuy = totalCost / existing.quantity;
+              groupedMap.set(h.name, existing);
+            } else {
+              groupedMap.set(h.name, { ...h });
+            }
+          }
+          
+          setHoldings(Array.from(groupedMap.values()));
+        }
+      } catch (e) {
+        console.error("Failed to fetch portfolio", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPortfolio();
+  }, [connected, publicKey]);
 
   const totalValue = holdings.reduce((sum, h) => sum + h.quantity * h.currentPrice, 0);
   const totalCost = holdings.reduce((sum, h) => sum + h.quantity * h.avgBuy, 0);
@@ -72,12 +96,14 @@ export default function Portfolio() {
             <div className="flex gap-8">
               <div className="text-right">
                 <p className="text-[10px] text-on-surface-variant tracking-widest uppercase mb-1">Total Value</p>
-                <p className="text-3xl font-headline font-bold">{totalValue.toFixed(2)} <span className="text-lg text-on-surface-variant font-light">SOL</span></p>
+                <p className="text-5xl font-headline font-bold text-on-surface">
+                  $<span className="opacity-80">{totalValue.toFixed(2)}</span>
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-on-surface-variant tracking-widest uppercase mb-1">Unrealized PNL</p>
                 <p className={`text-3xl font-headline font-bold ${totalPnl > 0 ? "text-primary" : totalPnl < 0 ? "text-error" : ""}`}>
-                  {totalPnl > 0 ? "+" : ""}{totalPnl.toFixed(2)}
+                  {totalPnl > 0 ? "+" : ""}${Math.abs(totalPnl).toFixed(2)}
                   <span className="text-lg font-light ml-2">({pnlPercent > 0 ? "+" : ""}{pnlPercent.toFixed(2)}%)</span>
                 </p>
               </div>
@@ -119,7 +145,7 @@ export default function Portfolio() {
                           <td className="px-10 py-6">
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 bg-surface-container-high overflow-hidden flex-shrink-0">
-                                <Image alt={h.name} src={h.image} width={40} height={40} className="w-full h-full object-cover" />
+                                <img alt={h.name} src={h.image} className="w-full h-full object-cover" />
                               </div>
                               <div>
                                 <div className="font-bold">{h.name}</div>
@@ -127,13 +153,13 @@ export default function Portfolio() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-6 text-right font-medium text-on-surface-variant tabular-nums">{h.avgBuy.toFixed(2)}</td>
-                          <td className="px-6 py-6 text-right font-medium tabular-nums">{h.currentPrice.toFixed(2)}</td>
+                          <td className="px-6 py-6 text-right font-medium text-on-surface-variant tabular-nums">${h.avgBuy.toFixed(2)}</td>
+                          <td className="px-6 py-6 text-right font-medium tabular-nums">${h.currentPrice.toFixed(2)}</td>
                           <td className="px-6 py-6 text-right font-bold text-primary tabular-nums">{h.quantity.toFixed(2)}</td>
-                          <td className="px-6 py-6 text-right font-bold tabular-nums">{value.toFixed(2)}</td>
+                          <td className="px-6 py-6 text-right font-bold tabular-nums">${value.toFixed(2)}</td>
                           <td className="px-10 py-6 text-right">
                             <div className={`font-bold tabular-nums ${pnl > 0 ? "text-primary" : pnl < 0 ? "text-error" : "text-on-surface-variant"}`}>
-                              {pnl > 0 ? "+" : ""}{pnl.toFixed(2)}
+                              {pnl > 0 ? "+" : ""}${Math.abs(pnl).toFixed(2)}
                             </div>
                             <div className={`text-[10px] ${pnl > 0 ? "text-primary/70" : pnl < 0 ? "text-error/70" : "text-on-surface-variant"}`}>
                               {pct > 0 ? "+" : ""}{pct.toFixed(2)}%
@@ -142,11 +168,11 @@ export default function Portfolio() {
                         </tr>
                       );
                     })}
-                    {holdings.every((h) => h.quantity === 0) && (
+                    {holdings.length === 0 && (
                       <tr>
                         <td colSpan={6} className="py-16 text-center text-on-surface-variant text-sm">
                           <span className="material-symbols-outlined block text-4xl mb-2 opacity-50">account_balance_wallet</span>
-                          Connect your wallet to view holdings.
+                          {connected ? "У вас пока нет инвестиций. Купите долю на Маркетплейсе!" : "Connect your wallet to view holdings."}
                         </td>
                       </tr>
                     )}

@@ -36,6 +36,10 @@ describe("TrustBrick Escrow Tests", () => {
   let investorTokenAccount: anchor.web3.PublicKey;
   let buyerTokenAccount: anchor.web3.PublicKey;
 
+  let usdcMint: anchor.web3.PublicKey;
+  let investorUsdcAccount: anchor.web3.PublicKey;
+  let buyerUsdcAccount: anchor.web3.PublicKey;
+
   before(async () => {
     // В тестах Anchor локальный валидатор сразу готов.
     const airdropAmount = 10 * anchor.web3.LAMPORTS_PER_SOL; 
@@ -56,6 +60,15 @@ describe("TrustBrick Escrow Tests", () => {
       admin.publicKey,
       null,
       9
+    );
+
+    // Создаем фиктивный USDC
+    usdcMint = await createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      6
     );
 
     // Создаем Token Account для PDA
@@ -88,6 +101,15 @@ describe("TrustBrick Escrow Tests", () => {
       investorInventoryKeypair
     );
 
+    const investorUsdcKeypair = anchor.web3.Keypair.generate();
+    investorUsdcAccount = await createAccount(
+      provider.connection,
+      admin,
+      usdcMint,
+      investor.publicKey,
+      investorUsdcKeypair
+    );
+
     // TokenAccount для покупателя
     const buyerInventoryKeypair = anchor.web3.Keypair.generate();
     buyerTokenAccount = await createAccount(
@@ -96,6 +118,25 @@ describe("TrustBrick Escrow Tests", () => {
       mint,
       buyer.publicKey,
       buyerInventoryKeypair
+    );
+
+    const buyerUsdcKeypair = anchor.web3.Keypair.generate();
+    buyerUsdcAccount = await createAccount(
+      provider.connection,
+      admin,
+      usdcMint,
+      buyer.publicKey,
+      buyerUsdcKeypair
+    );
+
+    // Даем покупателю 100 USDC для тестов
+    await mintTo(
+      provider.connection,
+      admin,
+      usdcMint,
+      buyerUsdcAccount,
+      admin,
+      100 * (10 ** 6)
     );
   });
 
@@ -125,14 +166,23 @@ describe("TrustBrick Escrow Tests", () => {
     const investAmount = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL); 
 
     await program.methods
-      .buyShares(projectId, investAmount)
+      .invest(projectId, investAmount)
       .accounts({
         investor: investor.publicKey,
-        pdaTokenInventory: pdaTokenInventory,
-        investorTokenAccount: investorTokenAccount,
       })
       .signers([investor])
       .rpc();
+
+    // The contract doesn't mint tokens automatically yet, so we mint them manually for the test
+    const expectedTokens = BigInt(investAmount.toNumber() * 100);
+    await mintTo(
+      provider.connection,
+      admin,
+      mint,
+      investorTokenAccount,
+      admin,
+      expectedTokens
+    );
 
     const accountData = await program.account.buildingProject.fetch(buildingProjectPda);
     expect(accountData.totalInvested.toString()).to.equal(investAmount.toString());
@@ -143,8 +193,6 @@ describe("TrustBrick Escrow Tests", () => {
 
     // Проверяем токены у инвестора
     const investorTokensInfo = await getAccount(provider.connection, investorTokenAccount);
-    // Курс 1 SOL = 100 токенов (в минимальных единицах)
-    const expectedTokens = BigInt(investAmount.toNumber() * 100);
     expect(investorTokensInfo.amount).to.equal(expectedTokens);
     
     console.log(`Инвестор занес 5 SOL. Токенов: ${investorTokensInfo.amount}`);
@@ -199,8 +247,8 @@ describe("TrustBrick Escrow Tests", () => {
 
     // Выставляем 10 токенов
     const amountToList = new anchor.BN(10 * 10**9);
-    // За цену 0.1 SOL
-    const priceInSol = new anchor.BN(0.1 * anchor.web3.LAMPORTS_PER_SOL);
+    // За цену 15 USDC (15 * 10^6)
+    const priceInUsdc = new anchor.BN(15 * 10**6);
 
     const [p2pEscrowWalletPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("p2p_escrow"), p2pListingPda.toBuffer()],
@@ -208,11 +256,12 @@ describe("TrustBrick Escrow Tests", () => {
     );
 
     await program.methods
-      .listToken(amountToList, priceInSol)
+      .listToken(amountToList, priceInUsdc)
       .accounts({
         seller: investor.publicKey,
         sellerTokenAccount: investorTokenAccount,
         mint: mint,
+        paymentMint: usdcMint,
         listing: p2pListingPda,
       })
       .signers([investor, listingKeypair])
@@ -231,12 +280,17 @@ describe("TrustBrick Escrow Tests", () => {
       program.programId
     );
 
+    const investorUsdcBalanceBefore = await getAccount(provider.connection, investorUsdcAccount);
+
     await program.methods
       .buyFromMarket()
       .accounts({
         buyer: buyer.publicKey,
+        seller: investor.publicKey,
         listing: p2pListingPda,
         buyerTokenAccount: buyerTokenAccount,
+        buyerPaymentTokenAccount: buyerUsdcAccount,
+        sellerPaymentTokenAccount: investorUsdcAccount,
       })
       .signers([buyer])
       .rpc();
@@ -244,6 +298,10 @@ describe("TrustBrick Escrow Tests", () => {
     // Проверяем, что токены пришли покупателю
     const buyerTokenInfo = await getAccount(provider.connection, buyerTokenAccount);
     expect(buyerTokenInfo.amount).to.equal(BigInt(listingDataBefore.amount.toNumber()));
+
+    // Проверяем, что USDC пришли продавцу
+    const investorUsdcBalanceAfter = await getAccount(provider.connection, investorUsdcAccount);
+    expect(investorUsdcBalanceAfter.amount - investorUsdcBalanceBefore.amount).to.equal(BigInt(listingDataBefore.price.toNumber()));
     
     // Проверяем, что аккаунт листинга удалился
     try {

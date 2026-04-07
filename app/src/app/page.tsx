@@ -2,40 +2,46 @@
 
 import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { getProgram, getBuildingProjectPda, PROJECT_ID } from "@/utils/anchor";
+import { getProgram, getBuildingProjectPda } from "@/utils/anchor";
 import { AnchorProvider, BN } from "@coral-xyz/anchor";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/components/LanguageContext";
-
-const GOAL_SOL = 50;
+import { PROJECTS, ProjectConfig } from "@/lib/projects";
 
 export default function Home() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { t } = useLanguage();
 
-  const [totalInvested, setTotalInvested] = useState(0);
-  const [stage, setStage] = useState(0);
+  const [projectStates, setProjectStates] = useState<Record<number, { invested: number, stage: number }>>({});
   const [loading, setLoading] = useState(true);
-  const [investing, setInvesting] = useState(false);
+  const [investing, setInvesting] = useState<number | null>(null);
+  const [amounts, setAmounts] = useState<Record<number, number>>({});
 
   const fetchProjectData = async () => {
     try {
       if (!wallet.publicKey || !wallet.signTransaction) return;
       const provider = new AnchorProvider(connection, wallet as any, {});
       const program = getProgram(provider);
-      const pda = getBuildingProjectPda();
-      const accountData = await program.account.buildingProject.fetch(pda);
-      const investedSol = accountData.totalInvested.toNumber() / LAMPORTS_PER_SOL;
-      setTotalInvested(investedSol);
-      setStage(accountData.stage);
-    } catch (err: any) {
-      if (err.message.includes("Account does not exist")) {
-        console.log("Contract not initialized yet");
-      } else {
-        console.error("Failed to read contract:", err);
+      
+      const newStates: Record<number, { invested: number, stage: number }> = {};
+      for (const proj of PROJECTS) {
+        try {
+          const pda = getBuildingProjectPda(proj.id);
+          const accountData = await program.account.buildingProject.fetch(pda);
+          newStates[proj.id] = {
+            invested: accountData.totalInvested.toNumber() / LAMPORTS_PER_SOL,
+            stage: accountData.stage
+          };
+        } catch(e) {
+          // Если контракт не инициирован для этого здания, ставим нули
+          newStates[proj.id] = { invested: 0, stage: 0 };
+        }
       }
+      setProjectStates(newStates);
+    } catch (err: any) {
+      console.error("Failed to read contract:", err);
     } finally {
       setLoading(false);
     }
@@ -49,41 +55,51 @@ export default function Home() {
     }
   }, [wallet.connected, connection]);
 
-  const handleInvest = async () => {
+  const handleInvest = async (proj: ProjectConfig) => {
     if (!wallet.connected || !wallet.publicKey) return;
     try {
-      setInvesting(true);
+      setInvesting(proj.id);
+      
+      const customAmount = amounts[proj.id];
+      const selectedAmount = customAmount !== undefined && !isNaN(customAmount) && customAmount > 0 ? customAmount : proj.mintPriceSol;
+
       const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
       const program = getProgram(provider);
-      const investAmount = new BN(1 * LAMPORTS_PER_SOL);
+      const investAmount = new BN(selectedAmount * LAMPORTS_PER_SOL);
       const tx = await program.methods
-        .invest(new BN(PROJECT_ID), investAmount)
+        .invest(new BN(proj.id), investAmount)
         .accounts({ investor: wallet.publicKey })
         .rpc();
       try {
-        await fetch("/api/mint", {
+        const res = await fetch("/api/mint-investor-nft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            investor: wallet.publicKey.toBase58(),
-            amount: 1,
+            investorWallet: wallet.publicKey.toBase58(),
+            amountSol: selectedAmount,
             txSignature: tx,
+            slug: proj.slug
           }),
         });
-        alert("✅ Investment accepted. Share acquired!");
+        const backendRes = await res.json();
+        if(!backendRes.success) {
+          alert("Бэкенд вернул ошибку при минте: " + (backendRes.error || JSON.stringify(backendRes)));
+          console.error("Backend Error:", backendRes);
+        } else {
+          alert(`✅ Investment accepted. Share in ${proj.name} acquired!`);
+        }
       } catch (backendErr) {
         console.error("Backend failed to issue NFT:", backendErr);
+        alert("Критическая ошибка бэкенда: " + backendErr);
       }
       await fetchProjectData();
     } catch (err: any) {
       console.error("Investment error:", err);
       alert("Transaction error: " + err.message);
     } finally {
-      setInvesting(false);
+      setInvesting(null);
     }
   };
-
-  const progressPercent = Math.min((totalInvested / GOAL_SOL) * 100, 100);
 
   return (
     <>
@@ -150,101 +166,65 @@ export default function Home() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {/* Card 1: Elysian Tower */}
-          <div className="group cursor-pointer">
-            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
-              <img
-                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC17S9hOE0DWk7ymSuzqfgieEVI2TPQT6kAuCkxluNPxY1NCIZqK8xp99QYwDcGdQmgIHiiSRNpRx8CjaqGZO-gTgfdjfm_4D10frAKQxfWhLSaqeqZCEw8CFZRFdczwOD1tMxXjcJQxxs1J9Q-9wjr8so0JP_ecyPQS7_9hmA1BTrJDm-9xxZ4KXDOqzI5DfIEIELI2_m2vhO-KRdt1WUIf7V8YMJWRhvFleCWEM8Szn39HMJRvm7S1U1ZU6-JQzecbzPS6u7aNZzj"
-                alt="Elysian Tower"
-              />
-              <div className="absolute top-0 right-0 p-4">
-                <span className="bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest px-3 py-1">
-                  Minting Live
-                </span>
+          {PROJECTS.map((proj) => {
+            const dynamicState = projectStates[proj.id];
+            
+            return (
+              <div key={proj.id} className="group border border-transparent hover:border-outline-variant/30 p-2 transition-all">
+                <a href={`/project/${proj.slug}`} className="cursor-pointer block relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
+                  <img
+                    className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
+                    src={`/api/images/${proj.id}`}
+                    alt={proj.name}
+                  />
+                  <div className="absolute top-0 right-0 p-4">
+                    <span className="bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                      Minting Live
+                    </span>
+                  </div>
+                </a>
+                <div className="flex justify-between items-start">
+                  <a href={`/project/${proj.slug}`} className="block cursor-pointer">
+                    <h3 className="font-headline text-xl font-bold tracking-tighter text-on-surface">
+                      {proj.name}
+                    </h3>
+                    <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
+                      {proj.location}
+                    </p>
+                  </a>
+                  <div className="text-right">
+                    <span className="block text-xl font-headline font-light text-on-surface">
+                      {(dynamicState?.invested || 0).toFixed(1)} SOL
+                    </span>
+                    <span className="block text-[10px] text-accent uppercase tracking-tighter font-bold">
+                      {proj.yieldInfo}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <div className="relative w-1/3">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      className="w-full py-3 px-3 pl-8 bg-surface-container border justify-center border-outline-variant/20 text-xs font-bold text-on-surface focus:outline-none focus:border-primary transition-all"
+                      placeholder="SOL"
+                      value={amounts[proj.id] !== undefined ? amounts[proj.id] : proj.mintPriceSol}
+                      onChange={(e) => setAmounts({...amounts, [proj.id]: parseFloat(e.target.value)})}
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant bg-transparent min-h-0 py-0 border-none">◎</span>
+                  </div>
+                  <button
+                    onClick={() => handleInvest(proj)}
+                    disabled={investing === proj.id || !wallet.connected}
+                    className="flex-1 py-3 bg-surface-container-high border justify-center border-outline-variant/20 hover:border-primary text-xs uppercase tracking-widest font-bold text-on-surface hover:text-primary transition-all flex items-center gap-2"
+                  >
+                    {investing === proj.id ? 'PROCCESSING...' : `INVEST`}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
-                  Elysian Tower
-                </h3>
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
-                  Prime Midtown District
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="block text-xl font-headline font-light text-on-surface">$124.5M</span>
-                <span className="block text-[10px] text-accent uppercase tracking-tighter font-bold">
-                  8.4% Target Yield
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Vertex Logistics */}
-          <div className="group cursor-pointer">
-            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
-              <img
-                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAD1eYxPy0mgxvFvW9aV2NLQeyaeSzVA3GNxPGk7-s_OyHuIY54b_cvXPEKZ4ROyGcloti5tTfrAtRBgLf4LLhWEIX1DjMFbnDo8gnWNqTQFV7yFarjQwi8Ru_RO13DG9JbuJHXJAWf7WNwhVyvu_tW1zmndEIaSe2dGVhDKak3mIsRFOEGPoGnss5qqgTZmNuISFlS-ce7dzLNUffptqidoTP4Iaj7JHBtEZ6yM3R0wRRM2Dyjxd67AK_8poDCcYyfu8nyFZS71E_L"
-                alt="Vertex Logistics"
-              />
-              <div className="absolute top-0 right-0 p-4">
-                <span className="bg-surface-container-high text-on-surface-variant text-[10px] font-bold uppercase tracking-widest px-3 py-1 spectral-outline">
-                  Sold Out
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
-                  Vertex Logistics
-                </h3>
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
-                  Global Trade Corridor
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="block text-xl font-headline font-light text-on-surface">$89.2M</span>
-                <span className="block text-[10px] text-on-surface-variant uppercase tracking-tighter font-bold">
-                  Historical 7.2%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Atrium Plaza */}
-          <div className="group cursor-pointer">
-            <div className="relative overflow-hidden aspect-[4/5] bg-surface-container mb-6">
-              <img
-                className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-700"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8dhyW0mXM41Gavbw1-FEbARJsV6z4ludx-CBAV7CiOtSjcmMQvUmwX-IMhZjUtWWGrhmJr__-lo7a5W2h0n-c-7vczOXkXlQCgnGpgHBfGIzHZJOgOu7sg-ci39EuPHe_G5rewSNLsgdzWYVOAQ_u2bc4cLGvg95S9VowAahw9euqdOf7-D4k_l6Nura4ZeL9-8LJWFHOqZ5eQ6BV_Vze5U8XGzYonEYhK42z87q5gSXMlQcEd13VYXx2VglvuRyLvY-f_o-cw9d-"
-                alt="Atrium Plaza"
-              />
-              <div className="absolute top-0 right-0 p-4">
-                <span className="bg-surface-container-low text-accent text-[10px] font-bold uppercase tracking-widest px-3 py-1 spectral-outline">
-                  Upcoming
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-headline text-2xl font-bold tracking-tighter text-on-surface">
-                  Atrium Plaza
-                </h3>
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium mt-1">
-                  Tech Hub Cluster
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="block text-xl font-headline font-light text-on-surface">$210.0M</span>
-                <span className="block text-[10px] text-accent uppercase tracking-tighter font-bold">
-                  Registration Open
-                </span>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </section>
 

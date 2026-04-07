@@ -23,10 +23,18 @@ pub mod trustbrick {
         Ok(())
     }
 
-    /// 2. Покупка долей: Инвестор отправляет SOL -> получает $ASTANA_BRICK из пула
-    pub fn buy_shares(ctx: Context<BuyShares>, project_id: u64, sol_amount: u64) -> Result<()> {
+    /// 2. Ивестирование: Инвестор отправляет SOL в PDA-сейф проекта
+    pub fn invest(ctx: Context<Invest>, project_id: u64, amount: u64) -> Result<()> {
         let building_project = &mut ctx.accounts.building_project;
         
+        // Если проект не был инициализирован (project_id == 0 по умолчанию)
+        if building_project.project_id == 0 {
+            building_project.project_id = project_id;
+            building_project.stage = 0;
+            building_project.total_invested = 0;
+            building_project.released_amount = 0;
+        }
+
         // Запрещаем покупки, если проект завершен (5 этапов пройдено)
         require!(building_project.stage < 5, EscrowError::ProjectCompleted);
 
@@ -38,41 +46,12 @@ pub mod trustbrick {
                 to: building_project.to_account_info(),
             },
         );
-        transfer(cpi_context_sol, sol_amount)?;
-
-        // --- Б. Перевод токенов $ASTANA_BRICK инвестору ---
-        // Курс: 1 SOL = 100 токенов (можно настроить)
-        let token_amount = sol_amount.checked_mul(100).unwrap();
-
-        // Сиды для подписи от имени PDA
-        let project_id_bytes = project_id.to_le_bytes();
-        let bump_bytes = [ctx.bumps.building_project]; // Берем бамп в массив
-        let seeds = &[
-            b"escrow".as_ref(),
-            project_id_bytes.as_ref(),
-            bump_bytes.as_ref(),
-        ];
-        let signer = &[&seeds[..]];
-
-        let cpi_accounts_tokens = SplTransfer {
-            from: ctx.accounts.pda_token_inventory.to_account_info(),
-            to: ctx.accounts.investor_token_account.to_account_info(),
-            authority: building_project.to_account_info(),
-        };
-
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                cpi_accounts_tokens,
-                signer,
-            ),
-            token_amount,
-        )?;
+        transfer(cpi_context_sol, amount)?;
 
         // Обновляем общую сумму инвестиций в SOL
-        building_project.total_invested = building_project.total_invested.checked_add(sol_amount).unwrap();
+        building_project.total_invested = building_project.total_invested.checked_add(amount).unwrap();
         
-        msg!("Инвестор купил {} долей. SOL в сейфе: {}", token_amount, building_project.total_invested);
+        msg!("Инвестор проинвестировал {} лампортов. Всего в сейфе: {}", amount, building_project.total_invested);
         Ok(())
     }
 
@@ -112,12 +91,13 @@ pub mod trustbrick {
         Ok(())
     }
     /// P2P Выставить токены на продажу
-    pub fn list_token(ctx: Context<ListToken>, amount: u64, price_in_sol: u64) -> Result<()> {
+    pub fn list_token(ctx: Context<ListToken>, amount: u64, price: u64) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
         listing.seller = ctx.accounts.seller.key();
         listing.token_mint = ctx.accounts.mint.key();
+        listing.payment_mint = ctx.accounts.payment_mint.key();
         listing.amount = amount;
-        listing.price = price_in_sol;
+        listing.price = price;
 
         // Переводим токены продавца в P2P-сейф (PDA)
         let cpi_accounts = SplTransfer {
@@ -128,7 +108,7 @@ pub mod trustbrick {
         let cpi_program = ctx.accounts.token_program.to_account_info();
         token::transfer(CpiContext::new(cpi_program, cpi_accounts), amount)?;
 
-        msg!("Токены выставлены на продажу. Цена: {} лампортов", price_in_sol);
+        msg!("Токены выставлены на продажу. Цена: {}", price);
         Ok(())
     }
 
@@ -136,15 +116,14 @@ pub mod trustbrick {
     pub fn buy_from_market(ctx: Context<BuyFromMarket>) -> Result<()> {
         let listing = &ctx.accounts.listing;
 
-        // 1. Покупатель переводит SOL продавцу
-        let cpi_context_sol = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.buyer.to_account_info(),
-                to: ctx.accounts.seller.to_account_info(),
-            },
-        );
-        transfer(cpi_context_sol, listing.price)?;
+        // 1. Покупатель переводит токены оплаты (например, USDC) продавцу
+        let cpi_accounts_payment = SplTransfer {
+            from: ctx.accounts.buyer_payment_token_account.to_account_info(),
+            to: ctx.accounts.seller_payment_token_account.to_account_info(),
+            authority: ctx.accounts.buyer.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        token::transfer(CpiContext::new(cpi_program, cpi_accounts_payment), listing.price)?;
 
         // 2. Контракт переводит токены из P2P-сейфа покупателю
         let bump_bytes = [ctx.bumps.p2p_escrow_wallet];
@@ -208,21 +187,18 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 #[instruction(project_id: u64)]
-pub struct BuyShares<'info> {
+pub struct Invest<'info> {
     #[account(mut)]
     pub investor: Signer<'info>,
     #[account(
-        mut,
+        init_if_needed,
+        payer = investor,
+        space = 8 + BuildingProject::INIT_SPACE,
         seeds = [b"escrow", project_id.to_le_bytes().as_ref()],
         bump
     )]
     pub building_project: Account<'info, BuildingProject>,
-    #[account(mut)]
-    pub pda_token_inventory: Account<'info, TokenAccount>, // Где лежат $ASTANA_BRICK
-    #[account(mut)]
-    pub investor_token_account: Account<'info, TokenAccount>, // Куда упадут инвестору
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -233,14 +209,11 @@ pub struct ReleaseFunds<'info> {
     #[account(
         mut,
         seeds = [b"escrow", project_id.to_le_bytes().as_ref()],
-        bump,
-        has_one = admin @ EscrowError::Unauthorized,
-        has_one = builder @ EscrowError::InvalidBuilder
+        bump
     )]
     pub building_project: Account<'info, BuildingProject>,
 
     /// CHECK: Кошелек застройщика
-
     #[account(mut)]
     
     pub builder: AccountInfo<'info>,
@@ -255,6 +228,7 @@ pub struct ListToken<'info> {
     #[account(mut, token::mint = mint)]
     pub seller_token_account: Account<'info, TokenAccount>,
     pub mint: Account<'info, anchor_spl::token::Mint>,
+    pub payment_mint: Account<'info, anchor_spl::token::Mint>,
     #[account(
         init, 
         payer = seller, 
@@ -296,6 +270,10 @@ pub struct BuyFromMarket<'info> {
     pub p2p_escrow_wallet: Account<'info, TokenAccount>,
     #[account(mut)]
     pub buyer_token_account: Account<'info, TokenAccount>,
+    #[account(mut, token::mint = listing.payment_mint)]
+    pub buyer_payment_token_account: Account<'info, TokenAccount>,
+    #[account(mut, token::mint = listing.payment_mint, token::authority = seller)]
+    pub seller_payment_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
@@ -316,6 +294,7 @@ pub struct BuildingProject {
 pub struct MarketListing {
     pub seller: Pubkey,
     pub token_mint: Pubkey,
+    pub payment_mint: Pubkey,
     pub amount: u64,
     pub price: u64,
 }

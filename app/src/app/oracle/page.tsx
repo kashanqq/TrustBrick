@@ -17,6 +17,11 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
+import { PROJECTS, ProjectConfig } from "@/lib/projects";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { getProgram, getBuildingProjectPda } from "@/utils/anchor";
+import { AnchorProvider, BN } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 
 // ── Словари ────────────────────────────────────────────────────────
 const TRANSLATIONS = {
@@ -69,72 +74,70 @@ const TRANSLATIONS = {
 };
 
 type Lang = 'ru' | 'en';
-
-// ── Моковые данные ────────────────────────────────────────────────
-const MOCK_PROJECTS = [
-  {
-    id: "proj_1",
-    name: "ЖК Sunrise",
-    address: { ru: "ул. Строителей, 12, блок А", en: "Stroiteley st, 12, block A" },
-    statusText: { ru: "Ожидает инспекции: Этап 2", en: "Pending Inspection: Phase 2" },
-    statusType: "pending",
-    trancheAmount: "50,000 USDC",
-    stageName: { ru: "Этап 2: Заливка фундамента", en: "Phase 2: Foundation pouring" },
-    checks: [
-      { ru: "Материалы соответствуют смете (ГОСТ 27751-2014)", en: "Materials match the estimate (GOST 27751-2014)" },
-      { ru: "Объем бетонных работ выполнен на 100%", en: "Concrete works volume is 100% complete" },
-      { ru: "Арматурный каркас соответствует чертежам", en: "Reinforcement frame matches drawings" },
-      { ru: "Фотоотчет и 3D-скан (LIDAR) прикреплены", en: "Photo report and 3D scan (LIDAR) attached" },
-    ]
-  },
-  {
-    id: "proj_2",
-    name: "БЦ Nomads",
-    address: { ru: "пр. Мангилик Ел, 44", en: "Mangilik El ave, 44" },
-    statusText: { ru: "В процессе строительства", en: "Under Construction" },
-    statusType: "in_progress",
-    trancheAmount: "120,000 USDC",
-    stageName: { ru: "Этап 4: Монтаж фасада", en: "Phase 4: Facade installation" },
-    checks: [
-      { ru: "Фасадные панели соответствуют спецификации", en: "Facade panels match specification" },
-      { ru: "Крепления установлены без дефектов", en: "Mounts installed without defects" },
-      { ru: "Теплоизоляция уложена сплошным слоем", en: "Thermal insulation applied in a continuous layer" },
-    ]
-  },
-  {
-    id: "proj_3",
-    name: "ЖК Green Park",
-    address: { ru: "ул. Ботаническая, 7", en: "Botanicheskaya st, 7" },
-    statusText: { ru: "Ожидает инспекции: Этап 1", en: "Pending Inspection: Phase 1" },
-    statusType: "pending",
-    trancheAmount: "25,000 USDC",
-    stageName: { ru: "Этап 1: Подготовка котлована", en: "Phase 1: Pit preparation" },
-    checks: [
-      { ru: "Глубина котлована соответствует проекту", en: "Pit depth matches project specification" },
-      { ru: "Стенки котлована укреплены", en: "Pit walls are reinforced" },
-      { ru: "Грунтовые воды отведены", en: "Groundwater is diverted" },
-      { ru: "Акт скрытых работ подписан", en: "Hidden works act is signed" },
-    ]
-  }
-];
-
 export default function OracleCabinet() {
   const wallet = useWallet();
+  const { connection } = useConnection();
   const { language } = useLanguage();
   const lang = language as Lang;
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   
+  const [projectStates, setProjectStates] = useState<Record<number, { stage: number, invested: number }>>({});
+  const [loading, setLoading] = useState(true);
+
   const [checkedItems, setCheckedItems] = useState<boolean[]>([]);
   const [isSigning, setIsSigning] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string>("");
 
   const t = TRANSLATIONS[lang];
-  const selectedProject = MOCK_PROJECTS.find(p => p.id === selectedProjectId);
+  const selectedProject = PROJECTS.find(p => p.id === selectedProjectId);
+  const currentStageIndex = selectedProject ? (projectStates[selectedProject.id]?.stage || 0) : 0;
+  
+  // Fake checks array based on stage for demonstration
+  const checksMock = [
+    { ru: "Материалы соответствуют ГОСТ", en: "Materials match GOST standards" },
+    { ru: "Объем работ выполнен на 100%", en: "Works volume is 100% complete" },
+    { ru: "Фотоотчет и 3D-скан загружены", en: "Photo and 3D scan uploaded" },
+  ];
+
+  const fetchProjectData = async () => {
+    try {
+      if (!wallet.publicKey || !wallet.signTransaction) return;
+      const provider = new AnchorProvider(connection, wallet as any, {});
+      const program = getProgram(provider);
+      
+      const newStates: Record<number, { stage: number, invested: number }> = {};
+      for (const proj of PROJECTS) {
+        try {
+          const pda = getBuildingProjectPda(proj.id);
+          const accountData = await program.account.buildingProject.fetch(pda);
+          newStates[proj.id] = {
+            stage: accountData.stage,
+            invested: accountData.totalInvested.toNumber() / LAMPORTS_PER_SOL
+          };
+        } catch(e) {
+          newStates[proj.id] = { stage: 0, invested: 0 };
+        }
+      }
+      setProjectStates(newStates);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (wallet.connected) {
+      fetchProjectData();
+    }
+  }, [wallet.connected, connection]);
 
   useEffect(() => {
     if (selectedProject) {
-      setCheckedItems(new Array(selectedProject.checks.length).fill(false));
+      setCheckedItems(new Array(checksMock.length).fill(false));
       setSuccessMsg(null);
+      setPhotoUrl("");
     }
   }, [selectedProjectId, selectedProject]);
 
@@ -147,18 +150,50 @@ export default function OracleCabinet() {
   const allChecked = checkedItems.length > 0 && checkedItems.every(Boolean);
 
   const handleSign = async () => {
-    if (!allChecked) return;
+    if (!allChecked || !selectedProject || !wallet.publicKey) return;
     
     setIsSigning(true);
-    await new Promise(r => setTimeout(r, 2500));
-    
-    setIsSigning(false);
-    setSuccessMsg(t.success);
-    
-    setTimeout(() => {
-      setSelectedProjectId(null);
-      setSuccessMsg(null);
-    }, 3000);
+    try {
+      // 1. Release funds / Increment stage on-chain
+      const provider = new AnchorProvider(connection, wallet as any, { preflightCommitment: "confirmed" });
+      const program = getProgram(provider);
+      
+      const tx = await program.methods
+        .releaseFunds(new BN(selectedProject.id))
+        .accounts({
+          admin: wallet.publicKey, 
+          builder: wallet.publicKey, // Оракул и застройщик - один кошелек для тестов
+        })
+        .rpc();
+        
+      console.log("Confirmed on-chain tx:", tx);
+
+      // 2. Upload photo to backend (updates Dynamic NFT metadata image!)
+      if (photoUrl) {
+        await fetch("/api/oracle/upload-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId: selectedProject.id,
+            stageIndex: currentStageIndex + 1,
+            imageUrl: photoUrl
+          })
+        });
+      }
+
+      setSuccessMsg(t.success);
+      await fetchProjectData();
+      
+      setTimeout(() => {
+        setSelectedProjectId(null);
+        setSuccessMsg(null);
+      }, 3000);
+      
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSigning(false);
+    }
   };
 
 
@@ -232,12 +267,15 @@ export default function OracleCabinet() {
               {t.myObjects}
             </h2>
             <span className="text-slate-500 font-mono text-sm">
-              {t.total}: {MOCK_PROJECTS.length}
+              {t.total}: {PROJECTS.length}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {MOCK_PROJECTS.map((proj) => (
+            {PROJECTS.map((proj) => {
+              const state = projectStates[proj.id];
+              const isPending = true; // For hackathon demo, they are always inspectable
+              
+              return (
               <div 
                 key={proj.id} 
                 className="bg-slate-800 border-2 border-slate-700 hover:border-amber-500 transition-colors flex flex-col rounded-none group"
@@ -248,15 +286,16 @@ export default function OracleCabinet() {
                   </h3>
                   <div className="flex items-start gap-2 text-slate-400 mb-4">
                     <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span className="text-sm">{proj.address[lang]}</span>
+                    <span className="text-sm">{proj.location}</span>
                   </div>
                   
                   <div className={`p-3 border-l-4 text-sm font-bold uppercase tracking-wide
-                    ${proj.statusType === 'pending' 
+                    ${isPending 
                       ? 'bg-amber-900/20 border-amber-500 text-amber-500' 
                       : 'bg-slate-900/50 border-slate-500 text-slate-300'}`}
                   >
-                    {proj.statusText[lang]}
+                    {isPending ? `Pending Inspection` : `Under Construction`}
+                    <span className="block text-xs mt-1 text-slate-400">Current Phase: {state?.stage || 0}</span>
                   </div>
                 </div>
                 
@@ -268,8 +307,7 @@ export default function OracleCabinet() {
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-            ))}
-          </div>
+            )})}
         </div>
       </main>
     );
@@ -299,11 +337,11 @@ export default function OracleCabinet() {
           </h1>
           <p className="text-slate-400 flex items-center gap-2 font-mono">
             <MapPin className="w-4 h-4" />
-            {selectedProject.address[lang]}
+            {selectedProject.location}
           </p>
         </div>
 
-        {selectedProject.statusType === 'pending' ? (
+        {true ? (
           <>
             {/* Плашка этапа */}
             <div className="bg-amber-500 text-slate-900 p-6 md:p-8 mb-8 border-4 border-amber-600 rounded-none shadow-[8px_8px_0_0_rgba(0,0,0,0.5)]">
@@ -312,13 +350,13 @@ export default function OracleCabinet() {
                   <p className="text-amber-900 font-black text-sm uppercase tracking-widest mb-1">
                     {t.requiresConfirmation}
                   </p>
-                  <h2 className="text-2xl md:text-4xl font-black uppercase leading-none">
-                    {selectedProject.stageName[lang]}
+                  <h2 className="text-2xl md:text-3xl font-black uppercase leading-none">
+                    Confirm Transition to Phase {currentStageIndex + 1}
                   </h2>
                 </div>
                 <div className="bg-slate-900 text-white p-4 shrink-0 text-center border-2 border-slate-900 rounded-none">
                   <p className="text-slate-400 text-xs font-mono uppercase mb-1">{t.trancheAmount}</p>
-                  <p className="text-2xl font-black">{selectedProject.trancheAmount}</p>
+                  <p className="text-2xl font-black">1.0 SOL</p>
                 </div>
               </div>
             </div>
@@ -331,7 +369,7 @@ export default function OracleCabinet() {
               </h3>
               
               <div className="space-y-4">
-                {selectedProject.checks.map((checkObj, idx) => (
+                {checksMock.map((checkObj, idx) => (
                   <label 
                     key={idx} 
                     className="flex items-start gap-4 p-4 border border-slate-700 hover:bg-slate-700/50 cursor-pointer transition-colors group"
@@ -339,7 +377,7 @@ export default function OracleCabinet() {
                     <div className="relative flex items-center justify-center shrink-0 mt-0.5">
                       <input 
                         type="checkbox" 
-                        checked={checkedItems[idx]}
+                        checked={checkedItems[idx] || false}
                         onChange={() => handleCheck(idx)}
                         className="peer appearance-none w-6 h-6 border-2 border-slate-500 checked:bg-amber-500 checked:border-amber-500 cursor-pointer rounded-none transition-colors"
                       />
@@ -373,6 +411,18 @@ export default function OracleCabinet() {
                   <Building2 className="w-6 h-6 mb-2 relative z-10" />
                   <span className="relative z-10">{t.upload3d}</span>
                 </button>
+              </div>
+
+              <div className="mt-6 flex flex-col items-center">
+                 <p className="text-xs text-amber-500 uppercase tracking-widest mb-2 font-bold bg-amber-500/10 px-3 py-1">Oracle Overrides: Append direct image URL</p>
+                 <input 
+                   type="text" 
+                   value={photoUrl} 
+                   onChange={(e) => setPhotoUrl(e.target.value)} 
+                   placeholder="https://imgur.com/example.png" 
+                   className="w-full bg-slate-900 border-2 border-slate-600 focus:border-amber-500 text-white px-4 py-3 outline-none text-sm transition-colors"
+                 />
+                 <p className="text-xs text-slate-500 mt-2">Paste a real photo URL. It will instantly update the dynamic NFTs of all investors.</p>
               </div>
             </div>
 

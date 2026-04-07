@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { getUmi } from '@/lib/umi';
+import { getImageForProjectStage } from '@/lib/server/imagesDb';
 import {
   getInvestorsByStage,
   updateInvestorStage,
@@ -65,17 +66,21 @@ export async function POST(req: Request) {
 
     if (investors.length > 0) {
       const umi = getUmi();
+      const projectId = parseInt(process.env.PROJECT_ID || '101');
       
       for (const investor of investors) {
         try {
           const mintPubkey = publicKey(investor.mintAddress);
+
+          const customImage = getImageForProjectStage(projectId, stageConfig.stageIndex);
+          const finalImage = customImage || stageConfig.image;
 
           // Формируем новые метаданные
           const newMetadata = {
             name: `TrustBrick Доля`,
             symbol: 'TBRICK',
             description: `Инвестиционная доля в ЖК Хакатон-Тауэр. ${investor.amountSol} SOL. Этап: ${stageConfig.name}`,
-            image: stageConfig.image,
+            image: finalImage,
             external_url: 'https://trustbrick.io',
             attributes: [
               { trait_type: 'stage', value: toStage },

@@ -13,7 +13,7 @@ const ASSETS = [
     phase: "Phase 3: Structural Core Completion",
     price: 142.85,
     change: "+4.2%",
-    image: "/stage-1.png",
+    image: "/api/images/101",
     volume: "1,248.5",
     status: "Verified Audit",
   },
@@ -24,8 +24,7 @@ const ASSETS = [
     phase: "Phase 1: Foundation",
     price: 245.0,
     change: "+12.1%",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuA8-Ow4CT9O_b08CJzLH74d60idNlxIoBH7UzkjQS-vx7xqBbcH45NyTKJTKCpJpHIZes0MLfvZFr9Zd4IXP7OHljfP7mh511HMDph6zc4CbnD_Z3VhDc6SmGMyMVlOwGpoK4s42k6a4eEfi9HA3xeQIJEL5QUH7AI38EhLBNqwp-h8Kmp2-h-Vgn0YGz7D5Z3t6QI3qppS98eKFbvkV00_IIdJf_jsUGlWcjXofSU8wP18zEaHBdACT3UHNPaj_01ZGBVWLRfsXuI",
+    image: "/api/images/102",
     volume: "4,102.1",
     status: "Verified Audit",
   },
@@ -36,8 +35,7 @@ const ASSETS = [
     phase: "Phase 5: Interior Fit-out",
     price: 412.8,
     change: "+9.8%",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDu5WjZc2WvbANMGyfH2zyZszN6UzoArtH9m9sZgPqH0nrvyFTkRUeGZWeMvD9FuAWQFjuFyUtInMKmtK6dWDifTmgkde0HQWVJMO-nw3G-pqJH-wekySt4EiiVEHcaZIaYnrx-XBoe5IVzgmYmLJNsKmaqgan1gm5qjy8YXSOte2ovQsXpA1MGpe3YZdOpRFFRCqSKgjgQg0dU8z6ejNqd_225nUxGiPsS83toSJyBLb2o44DO1vmoMhjdd5hUvUlvNqftDvFgIQA",
+    image: "/api/images/103",
     volume: "8,920.4",
     status: "Verified Audit",
   },

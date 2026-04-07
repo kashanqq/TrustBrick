@@ -24,6 +24,7 @@ import {
   updateInvestorStage,
   getAllInvestors,
 } from '@/lib/db';
+import { getImageForProjectStage } from '@/lib/server/imagesDb';
 import {
   STAGES,
   STAGE_ORDER,
@@ -36,7 +37,7 @@ import {
   fetchDigitalAsset,
 } from '@metaplex-foundation/mpl-token-metadata';
 import { publicKey } from '@metaplex-foundation/umi';
-import idl from '@/idl/solana_counter.json';
+import idl from '@/idl/trustbrick.json';
 
 // ── Типы ──────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ async function releaseFundsOnChain(
 ): Promise<{ txSignature: string }> {
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8899';
   const programId = process.env.PROGRAM_ID || idl.address;
-  const projectId = parseInt(process.env.PROJECT_ID || '1');
+  const projectId = parseInt(process.env.PROJECT_ID || '101');
 
   // Парсим приватный ключ админа
   const adminKeypairRaw = JSON.parse(process.env.ADMIN_KEYPAIR || '[]');
@@ -127,6 +128,7 @@ async function updateAllNftMetadata(
   const investors = getInvestorsByStage(fromStage);
   const umi = getUmi();
   const stageConfig = STAGES[toStage];
+  const projectId = parseInt(process.env.PROJECT_ID || '101');
   const errors: string[] = [];
   let updated = 0;
 
@@ -137,12 +139,15 @@ async function updateAllNftMetadata(
     try {
       const mintPubkey = publicKey(investor.mintAddress);
 
+      const customImage = getImageForProjectStage(projectId, stageConfig.stageIndex);
+      const finalImage = customImage || stageConfig.image;
+
       // Формируем новые метаданные
       const newMetadata = {
         name: `TrustBrick Доля`,
         symbol: 'TBRICK',
         description: `Инвестиционная доля в ЖК Хакатон-Тауэр. ${investor.amountSol} SOL. Этап: ${stageConfig.name}`,
-        image: stageConfig.image,
+        image: finalImage,
         external_url: 'https://trustbrick.io',
         attributes: [
           { trait_type: 'stage', value: toStage },
@@ -244,7 +249,15 @@ export async function POST(req: NextRequest) {
       // Поток А: release_funds на блокчейне
       releaseFundsOnChain(releaseAmountSol)
         .then((result) => ({ success: true as const, ...result }))
-        .catch((err) => ({ success: false as const, error: err.message })),
+        .catch((err) => {
+          console.error('[ORACLE:A] Chain Error:', err);
+          if (err.getLogs) {
+             console.log('--- CHAIN TRANSACTION LOGS ---');
+             console.log(err.getLogs());
+             console.log('------------------------------');
+          }
+          return { success: false as const, error: err.message, logs: err.getLogs ? err.getLogs() : undefined };
+        }),
 
       // Поток Б: обновление метаданных NFT
       updateAllNftMetadata(fromStage, targetStage)
@@ -275,8 +288,16 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error('[ORACLE] Critical error:', err);
+    if (err.getLogs) {
+      console.log('--- CRITICAL TRANSACTION LOGS ---');
+      console.log(err.getLogs());
+      console.log('---------------------------------');
+    }
     return NextResponse.json(
-      { error: `Oracle error: ${err.message}` },
+      { 
+        error: `Oracle error: ${err.message}`,
+        logs: err.getLogs ? err.getLogs() : undefined
+      },
       { status: 500 }
     );
   }

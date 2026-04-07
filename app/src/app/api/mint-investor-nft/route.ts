@@ -99,36 +99,29 @@ function buildNftMetadata(investorWallet: string, amountSol: number) {
   };
 }
 
-// ── Загрузка метаданных (локальная заглушка для devnet) ───────────
-
-async function uploadMetadata(umi: Umi, metadata: ReturnType<typeof buildNftMetadata>): Promise<string> {
-  try {
-    // Пытаемся загрузить на Arweave через Irys
-    const uri = await umi.uploader.uploadJson(metadata);
-    console.log(`[UPLOAD] Metadata uploaded to: ${uri}`);
-    return uri;
-  } catch (err: any) {
-    // Фоллбэк: для локальной разработки создаём data URI
-    console.warn(`[UPLOAD] Arweave upload failed (${err.message}), using data URI fallback`);
-    const json = JSON.stringify(metadata);
-    const base64 = Buffer.from(json).toString('base64');
-    return `data:application/json;base64,${base64}`;
-  }
-}
+// Мы теперь не загружаем статичный JSON на Arweave.
+// Вместо этого мы будем использовать динамический URI (наш API).
 
 // ── Основной обработчик ──────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { investorWallet, amountSol, txSignature } = body;
+    const { investorWallet, amountSol, txSignature, slug } = body;
 
     // Валидация входных данных
-    if (!investorWallet || !amountSol || !txSignature) {
+    if (!investorWallet || !amountSol || !txSignature || !slug) {
       return NextResponse.json(
-        { error: 'Missing required fields: investorWallet, amountSol, txSignature' },
+        { error: 'Missing required fields: investorWallet, amountSol, txSignature, slug' },
         { status: 400 }
       );
+    }
+    
+    // Временно импортируем локально, т.к. не хотим ломать верхние импорты
+    const { getProjectBySlug } = require('@/lib/projects');
+    const project = getProjectBySlug(slug);
+    if(!project) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     if (typeof amountSol !== 'number' || amountSol <= 0) {
@@ -160,33 +153,46 @@ export async function POST(req: NextRequest) {
     // Шаг 2: Инициализация UMI
     const umi = getUmi();
 
-    // Шаг 3: Формирование и загрузка метаданных
-    const metadata = buildNftMetadata(investorWallet, amountSol);
-    const metadataUri = await uploadMetadata(umi, metadata);
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
 
-    // Шаг 4: Минт NFT
-    const mintSigner = generateSigner(umi);
-    const investorPubkey = publicKey(investorWallet);
+    // Раньше: Dynamic NFT Minting. Теперь: Mint Fungible SPL Tokens!
+    const { getOrCreateAssociatedTokenAccount, mintTo } = require('@solana/spl-token');
+    const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
+    
+    const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8899';
+    const connection = new Connection(rpcUrl, 'confirmed');
+    // Using Backend Admin Keypair
+    const adminSecret = new Uint8Array([178,192,7,5,18,136,74,58,87,141,163,6,32,15,163,163,162,84,17,28,105,153,1,140,210,76,47,57,233,22,188,202,159,149,78,232,244,182,40,69,239,66,144,238,56,242,39,228,34,56,33,132,148,124,190,6,102,104,105,84,226,152,247,62]);
+    const adminKeypair = Keypair.fromSecretKey(adminSecret);
+    const investorPublicKey = new PublicKey(investorWallet);
+    const mintPubkey = new PublicKey(project.mintAddress);
 
-    console.log(`[MINT] Minting NFT...`);
-    console.log(`  Mint address: ${mintSigner.publicKey}`);
-    console.log(`  Token owner: ${investorWallet}`);
-    console.log(`  URI: ${metadataUri}`);
+    console.log(`[MINT] Sending ${amountSol} ${project.symbol || 'TBRICK'} to ${investorWallet}...`);
 
-    const txBuilder = createNft(umi, {
-      mint: mintSigner,
-      name: metadata.name,
-      symbol: metadata.symbol,
-      uri: metadataUri,
-      sellerFeeBasisPoints: percentAmount(0),
-      tokenOwner: investorPubkey,
-      isMutable: true, // важно: чтобы потом обновлять метаданные при смене этапа
-    });
+    // 1. Get/Create ATA for investor
+    const ata = await getOrCreateAssociatedTokenAccount(
+      connection,
+      adminKeypair,
+      mintPubkey,
+      investorPublicKey
+    );
 
-    const result = await txBuilder.sendAndConfirm(umi);
+    // 2. Mint tokens (1 token = 100$, let's mint amountSol * 10 or just amountSol directly (scale to decimals))
+    // Assuming 2 decimals, amountSol = 1 => 100 units = 1.00 tokens
+    const tokensToMint = Math.floor(amountSol * 100);
 
-    const mintAddress = mintSigner.publicKey.toString();
-    console.log(`[MINT] Success! Mint: ${mintAddress}`);
+    await mintTo(
+      connection,
+      adminKeypair,
+      mintPubkey,
+      ata.address,
+      adminKeypair,
+      tokensToMint
+    );
+
+    const mintAddress = project.mintAddress;
+    console.log(`[MINT] Success! Minted ${amountSol} tokens to ${investorWallet}`);
 
     // Шаг 5: Сохранение в БД
     addInvestor({
@@ -208,16 +214,27 @@ export async function POST(req: NextRequest) {
       mintAddress,
       explorerUrl,
       metadata: {
-        name: metadata.name,
-        stage: 'foundation',
+        name: `TrustBrick Share`,
+        stage: 'dynamic',
         amountSol,
       },
     });
 
   } catch (err: any) {
     console.error('[MINT] Error:', err);
+    
+    // Если это ошибка транзакции Solana, выводим логи для отладки
+    if (err.getLogs) {
+      console.log('--- TRANSACTION LOGS ---');
+      console.log(err.getLogs());
+      console.log('-------------------------');
+    }
+
     return NextResponse.json(
-      { error: `Mint failed: ${err.message}` },
+      { 
+        error: `Mint failed: ${err.message}`, 
+        logs: err.getLogs ? err.getLogs() : undefined 
+      },
       { status: 500 }
     );
   }
